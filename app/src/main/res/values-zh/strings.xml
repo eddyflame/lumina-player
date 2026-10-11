@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Lumina 音乐</string>
+    <string name="app_subtitle">发烧级纯本地音乐播放器</string>
+
+    <!-- 导航标签 -->
+    <string name="tab_songs">单曲</string>
+    <string name="tab_albums">专辑</string>
+    <string name="tab_artists">歌手</string>
+    <string name="tab_folders">文件夹</string>
+    <string name="tab_playlists">歌单</string>
+    <string name="tab_genres">流派</string>
+
+    <!-- 播放控制 -->
+    <string name="play">播放</string>
+    <string name="pause">暂停</string>
+    <string name="next">下一首</string>
+    <string name="previous">上一首</string>
+    <string name="queue">播放队列</string>
+    <string name="clear_queue">清空队列</string>
+    <string name="shuffle">随机播放</string>
+    <string name="shuffle_on">已开启随机</string>
+    <string name="shuffle_off">已关闭随机</string>
+    <string name="repeat">循环模式</string>
+    <string name="repeat_all">列表循环</string>
+    <string name="repeat_one">单曲循环</string>
+    <string name="repeat_off">顺序播放</string>
+    <string name="unknown_title">未知歌曲</string>
+    <string name="unknown_artist">未知歌手</string>
+    <string name="unknown_album">未知专辑</string>
+    <string name="now_playing">正在播放</string>
+
+    <!-- 排序 -->
+    <string name="sort_by">排序方式</string>
+    <string name="sort_title">曲名</string>
+    <string name="sort_artist">歌手</string>
+    <string name="sort_date">添加时间</string>
+    <string name="sort_duration">时长</string>
+    <string name="sort_size">文件大小</string>
+    <string name="sort_asc">升序</string>
+    <string name="sort_desc">降序</string>
+
+    <!-- 搜索与筛选 -->
+    <string name="search_hint">搜索歌曲、歌手、专辑...</string>
+    <string name="no_search_results">未找到匹配歌曲</string>
+    <string name="filter_short_audio">过滤短音频（&lt;30秒）</string>
+
+    <!-- 歌词 -->
+    <string name="lyrics">歌词</string>
+    <string name="no_lyrics">暂无歌词</string>
+    <string name="lyrics_offset">歌词时间校准</string>
+    <string name="lyrics_delay_500ms">-0.5秒</string>
+    <string name="lyrics_advance_500ms">+0.5秒</string>
+    <string name="lyrics_reset">重置</string>
+
+    <!-- 音效与均衡器 -->
+    <string name="equalizer">均衡器与音效</string>
+    <string name="eq_enable">启用均衡器</string>
+    <string name="eq_presets">预设音效</string>
+    <string name="eq_flat">平直</string>
+    <string name="eq_rock">摇滚</string>
+    <string name="eq_pop">流行</string>
+    <string name="eq_jazz">爵士</string>
+    <string name="eq_classical">古典</string>
+    <string name="eq_metal">重金属</string>
+    <string name="eq_hiphop">嘻哈</string>
+    <string name="eq_custom">自定义</string>
+    <string name="bass_boost">重低音增强</string>
+    <string name="virtualizer">3D 环绕声</string>
+    <string name="playback_speed">播放速度</string>
+    <string name="playback_pitch">音调微调</string>
+    <string name="crossfade">切歌淡入淡出</string>
+    <string name="crossfade_seconds">%d 秒</string>
+    <string name="replay_gain">音量自动平衡</string>
+
+    <!-- 睡眠定时 -->
+    <string name="sleep_timer">睡眠定时器</string>
+    <string name="timer_off">关闭</string>
+    <string name="timer_15m">15 分钟</string>
+    <string name="timer_30m">30 分钟</string>
+    <string name="timer_45m">45 分钟</string>
+    <string name="timer_60m">60 分钟</string>
+    <string name="timer_end_of_track">播完当前曲目</string>
+    <string name="timer_active">已设定时：剩余 %s</string>
+
+    <!-- 歌单 -->
+    <string name="favorites">我喜欢的音乐</string>
+    <string name="recent_played">最近播放</string>
+    <string name="most_played">最常播放</string>
+    <string name="new_playlist">新建歌单</string>
+    <string name="playlist_name_hint">歌单名称</string>
+    <string name="add_to_playlist">添加到歌单</string>
+    <string name="remove_from_playlist">从歌单移除</string>
+    <string name="delete_playlist">删除歌单</string>
+    <string name="create">创建</string>
+    <string name="cancel">取消</string>
+    <string name="save">保存</string>
+
+    <!-- 音频信息与标签 -->
+    <string name="audio_info">音频详细参数</string>
+    <string name="tag_editor">编辑音频标签</string>
+    <string name="info_format">音频格式</string>
+    <string name="info_bitrate">码率</string>
+    <string name="info_sample_rate">采样率</string>
+    <string name="info_bit_depth">位深</string>
+    <string name="info_channels">声道数</string>
+    <string name="info_path">文件路径</string>
+    <string name="info_size">文件大小</string>
+
+    <!-- 主题与设置 -->
+    <string name="settings">设置</string>
+    <string name="theme_mode">主题模式</string>
+    <string name="theme_system">跟随系统</string>
+    <string name="theme_light">浅色模式</string>
+    <string name="theme_dark">深色模式</string>
+    <string name="dark_style">深色质感风格</string>
+    <string name="dark_slate">石板深灰（柔和护眼）</string>
+    <string name="dark_amoled">AMOLED 纯黑（极致省电）</string>
+    <string name="dynamic_color">动态壁纸取色 (Material You)</string>
+    <string name="rescan_library">重新扫描曲库</string>
+    <string name="select_music_folder">添加音乐文件夹</string>
+    <string name="permission_title">曲库访问权限</string>
+    <string name="permission_desc">Lumina Player 需要访问设备存储以扫描和播放您的本地音乐。纯离线运行，绝无隐私追踪。</string>
+    <string name="grant_permission">授予权限</string>
+    <string name="no_songs_title">未扫描到音频文件</string>
+    <string name="no_songs_desc">请在设备中放入音频文件，或点击重新扫描以刷新曲库。</string>
+    <string name="scan_completed">扫描完成：共发现 %d 首歌曲</string>
+</resources>
