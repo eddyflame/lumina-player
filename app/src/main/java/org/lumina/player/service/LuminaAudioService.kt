@@ -42,6 +42,7 @@ class LuminaAudioService : MediaSessionService() {
         private set
 
     val dspController = AudioDspController()
+    val visualizerProcessor = org.lumina.player.core.dsp.VisualizerAudioProcessor(barCount = 24)
 
     private var wakeLock: PowerManager.WakeLock? = null
     private val binder = LocalBinder()
@@ -67,7 +68,12 @@ class LuminaAudioService : MediaSessionService() {
             .setUsage(C.USAGE_MEDIA)
             .build()
 
-        player = ExoPlayer.Builder(this)
+        val renderersFactory = org.lumina.player.core.dsp.VisualizerAudioProcessor.createRenderersFactory(
+            this,
+            visualizerProcessor
+        )
+
+        player = ExoPlayer.Builder(this, renderersFactory)
             .setAudioAttributes(audioAttributes, true) // Automatically handle audio focus
             .setHandleAudioBecomingNoisy(true) // Auto-pause on headphone disconnection
             .setWakeMode(C.WAKE_MODE_LOCAL)
@@ -87,6 +93,7 @@ class LuminaAudioService : MediaSessionService() {
                     runCatching { wakeLock?.acquire(24 * 60 * 60 * 1000L) }
                 } else {
                     runCatching { if (wakeLock?.isHeld == true) wakeLock?.release() }
+                    visualizerProcessor.resetSpectrum()
                 }
             }
         })
@@ -368,6 +375,7 @@ class LuminaAudioService : MediaSessionService() {
             }
         }
         dspController.release()
+        visualizerProcessor.resetSpectrum()
         runCatching {
             if (wakeLock?.isHeld == true) wakeLock?.release()
         }

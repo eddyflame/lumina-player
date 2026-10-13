@@ -1,17 +1,14 @@
 package org.lumina.player.ui.components
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -19,69 +16,69 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 import org.lumina.player.ui.theme.LuminaAccent
-import org.lumina.player.ui.theme.LuminaPrimary
-import kotlin.random.Random
 
 /**
- * Modern dynamic audio spectrum rhythm animation component.
+ * High-performance real-time audio rhythm visualizer.
+ * Renders live frequency bands computed directly from the audio playback pipeline.
  */
 @Composable
 fun AudioVisualizer(
+    spectrumData: FloatArray,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
     barCount: Int = 24,
-    color: Color = MaterialTheme.colorScheme.primary
+    primaryColor: Color = MaterialTheme.colorScheme.primary,
+    accentColor: Color = LuminaAccent
 ) {
-    val animatables = remember(barCount) {
-        List(barCount) { Animatable(0.12f) }
-    }
-
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) {
-            animatables.forEachIndexed { index, anim ->
-                launch {
-                    val duration = 280 + (index % 7) * 65
-                    val target = 0.35f + Random.nextFloat() * 0.65f
-                    anim.animateTo(
-                        targetValue = target,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(durationMillis = duration, easing = FastOutSlowInEasing),
-                            repeatMode = RepeatMode.Reverse
-                        )
-                    )
-                }
-            }
-        } else {
-            animatables.forEach { anim ->
-                launch {
-                    anim.animateTo(0.08f, tween(300))
-                }
-            }
-        }
-    }
-
-    Canvas(modifier = modifier.fillMaxWidth().height(48.dp)) {
-        val totalWidth = size.width
-        val barWidth = (totalWidth / barCount) * 0.6f
-        val gap = (totalWidth - barWidth * barCount) / (barCount - 1).coerceAtLeast(1)
-
-        val gradient = Brush.verticalGradient(
-            colors = listOf(LuminaAccent, color)
+    val gradient = Brush.verticalGradient(
+        colors = listOf(
+            accentColor,
+            primaryColor,
+            primaryColor.copy(alpha = 0.6f)
         )
+    )
 
-        animatables.forEachIndexed { index, anim ->
-            val barHeight = size.height * anim.value
-            val x = index * (barWidth + gap)
-            val y = size.height - barHeight
+    Canvas(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(38.dp)
+    ) {
+        val totalWidth = size.width
+        val canvasHeight = size.height
+        val minBarHeight = 4.dp.toPx()
 
+        val actualBarCount = barCount.coerceAtMost(spectrumData.size.takeIf { it > 0 } ?: barCount)
+        val barWidth = (totalWidth / actualBarCount) * 0.58f
+        val gap = (totalWidth - barWidth * actualBarCount) / (actualBarCount - 1).coerceAtLeast(1)
+
+        for (i in 0 until actualBarCount) {
+            val magnitude = if (isPlaying && i < spectrumData.size) {
+                spectrumData[i].coerceIn(0.04f, 1.0f)
+            } else {
+                0.04f
+            }
+
+            val targetHeight = (canvasHeight * magnitude).coerceAtLeast(minBarHeight)
+            val x = i * (barWidth + gap)
+            val y = canvasHeight - targetHeight
+
+            // Draw primary rhythm bar with rounded pill caps
             drawRoundRect(
                 brush = gradient,
                 topLeft = Offset(x, y),
-                size = Size(barWidth, barHeight),
+                size = Size(barWidth, targetHeight),
                 cornerRadius = CornerRadius(barWidth / 2, barWidth / 2)
             )
+
+            // Draw subtle bright peak bead on active beats
+            if (magnitude > 0.4f) {
+                drawCircle(
+                    color = accentColor,
+                    radius = barWidth * 0.45f,
+                    center = Offset(x + barWidth / 2, (y - 3.dp.toPx()).coerceAtLeast(barWidth * 0.45f))
+                )
+            }
         }
     }
 }

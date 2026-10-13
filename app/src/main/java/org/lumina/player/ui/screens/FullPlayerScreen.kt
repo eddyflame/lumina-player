@@ -1,12 +1,15 @@
 package org.lumina.player.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,14 +29,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
@@ -66,12 +70,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -94,6 +100,15 @@ import org.lumina.player.ui.theme.HiResGold
 import org.lumina.player.ui.theme.LuminaAccent
 import org.lumina.player.ui.theme.LuminaPrimary
 
+/**
+ * Display modes for the central artistic viewport of the full player.
+ */
+enum class PlayerArtViewMode {
+    COVER_CARD,
+    VINYL_DISC,
+    LYRICS
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullPlayerScreen(
@@ -109,6 +124,7 @@ fun FullPlayerScreen(
     playbackSpeed: Float,
     dspController: org.lumina.player.core.dsp.AudioDspController?,
     artwork: android.graphics.Bitmap? = null,
+    visualizerSpectrum: FloatArray = remember { FloatArray(24) { 0.04f } },
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
@@ -126,7 +142,7 @@ fun FullPlayerScreen(
     onCollapse: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showLyrics by remember { mutableStateOf(false) }
+    var viewMode by remember { mutableStateOf(PlayerArtViewMode.COVER_CARD) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var showAudioInfoDialog by remember { mutableStateOf(false) }
     var showEqualizerDialog by remember { mutableStateOf(false) }
@@ -153,22 +169,22 @@ fun FullPlayerScreen(
         }
     }
 
-    // Smooth vinyl rotation animation
+    // Continuous smooth vinyl turntable rotation animation
     val infiniteTransition = rememberInfiniteTransition(label = "vinyl")
     val vinylRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 20000, easing = LinearEasing),
+            animation = tween(durationMillis = 18000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "vinyl_rotate"
     )
 
-    // Ambient dynamic gradient background
+    // Ambient dynamic gradient background with soft radial diffuse
     val ambientGradient = Brush.verticalGradient(
         colors = listOf(
-            dominantColor.copy(alpha = 0.32f),
+            dominantColor.copy(alpha = 0.28f),
             MaterialTheme.colorScheme.background,
             MaterialTheme.colorScheme.background
         )
@@ -180,7 +196,7 @@ fun FullPlayerScreen(
             .clickable(
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                 indication = null
-            ) { /* Consume all clicks to prevent accidental pass-through to underlying screens */ },
+            ) { /* Consume background touch events */ },
         color = MaterialTheme.colorScheme.background
     ) {
         Box(
@@ -192,314 +208,501 @@ fun FullPlayerScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                    .padding(horizontal = 22.dp, vertical = 6.dp)
             ) {
-            // Top navigation bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onCollapse) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Collapse",
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
+                // Top navigation bar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onCollapse) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Collapse",
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
 
-                // Top center playback mode / Hi-Res badge indicator
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = stringResource(R.string.now_playing),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    currentSong.hiResBadgeText?.let { badge ->
-                        Surface(
-                            color = HiResGold.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(4.dp),
-                            modifier = Modifier.padding(top = 2.dp)
-                        ) {
-                            Text(
-                                text = badge,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = HiResGold,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                    // Top center playback title & Hi-Res audio badge
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = stringResource(R.string.now_playing),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        currentSong.hiResBadgeText?.let { badge ->
+                            Surface(
+                                color = HiResGold.copy(alpha = 0.16f),
+                                shape = RoundedCornerShape(4.dp),
+                                modifier = Modifier.padding(top = 2.dp)
+                            ) {
+                                Text(
+                                    text = badge,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = HiResGold,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { showEqualizerDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = stringResource(R.string.equalizer)
                             )
                         }
-                    }
-                }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { showEqualizerDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = stringResource(R.string.equalizer)
-                        )
-                    }
-
-                    Box {
-                        IconButton(onClick = { showMoreMenu = true }) {
-                            Icon(imageVector = Icons.Default.MoreVert, contentDescription = "More")
-                        }
-
-                    DropdownMenu(
-                        expanded = showMoreMenu,
-                        onDismissRequest = { showMoreMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.audio_info)) },
-                            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
-                            onClick = {
-                                showMoreMenu = false
-                                showAudioInfoDialog = true
+                        Box {
+                            IconButton(onClick = { showMoreMenu = true }) {
+                                Icon(imageVector = Icons.Default.MoreVert, contentDescription = "More")
                             }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.equalizer)) },
-                            leadingIcon = { Icon(Icons.Default.Equalizer, contentDescription = null) },
-                            onClick = {
-                                showMoreMenu = false
-                                showEqualizerDialog = true
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.sleep_timer)) },
-                            leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null) },
-                            onClick = {
-                                showMoreMenu = false
-                                showSleepTimerDialog = true
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tag_editor)) },
-                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                            onClick = {
-                                showMoreMenu = false
-                                showTagEditorDialog = true
-                            }
-                        )
-                    }
-                }
-            }
-        }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Middle vinyl artwork / lyrics display area (tap to toggle)
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .clickable { showLyrics = !showLyrics },
-                contentAlignment = Alignment.Center
-            ) {
-                if (showLyrics) {
-                    LyricsView(
-                        lyrics = lyrics,
-                        currentPositionMs = currentPositionMs,
-                        offsetMs = lyricsOffsetMs,
-                        onSeekTo = onSeekTo,
-                        onAdjustOffset = onAdjustLyricsOffset,
-                        onResetOffset = onResetLyricsOffset
-                    )
-                } else {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        // Vinyl record artistic container
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.82f)
-                                .aspectRatio(1f)
-                                .shadow(24.dp, shape = CircleShape)
-                                .clip(CircleShape)
-                                .background(Color(0xFF111827))
-                                .graphicsLayer { rotationZ = if (isPlaying) vinylRotation else 0f },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Vinyl record grooves and center label
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier
-                                    .fillMaxWidth(0.58f)
-                                    .aspectRatio(1f)
+                            DropdownMenu(
+                                expanded = showMoreMenu,
+                                onDismissRequest = { showMoreMenu = false }
                             ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.audio_info)) },
+                                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        showAudioInfoDialog = true
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.sleep_timer)) },
+                                    leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null) },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        showSleepTimerDialog = true
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.tag_editor)) },
+                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        showTagEditorDialog = true
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Middle artistic content area (Cover / Vinyl / Lyrics)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Crossfade(
+                        targetState = viewMode,
+                        animationSpec = tween(350),
+                        label = "art_mode_crossfade"
+                    ) { mode ->
+                        when (mode) {
+                            PlayerArtViewMode.COVER_CARD -> {
                                 Box(
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clickable {
+                                            viewMode = PlayerArtViewMode.VINYL_DISC
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    if (artwork != null) {
-                                        androidx.compose.foundation.Image(
-                                            bitmap = artwork.asImageBitmap(),
-                                            contentDescription = null,
-                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.Audiotrack,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(56.dp)
-                                        )
+                                    // Ambient glowing backdrop matching cover palette
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.72f)
+                                            .aspectRatio(1f)
+                                            .shadow(
+                                                elevation = 32.dp,
+                                                shape = RoundedCornerShape(28.dp),
+                                                spotColor = dominantColor,
+                                                ambientColor = dominantColor
+                                            )
+                                    )
+
+                                    // Main album cover card
+                                    Surface(
+                                        shape = RoundedCornerShape(24.dp),
+                                        shadowElevation = 14.dp,
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.76f)
+                                            .aspectRatio(1f)
+                                    ) {
+                                        if (artwork != null) {
+                                            Image(
+                                                bitmap = artwork.asImageBitmap(),
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(
+                                                        Brush.linearGradient(
+                                                            listOf(
+                                                                MaterialTheme.colorScheme.surfaceVariant,
+                                                                MaterialTheme.colorScheme.surface
+                                                            )
+                                                        )
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.MusicNote,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                                    modifier = Modifier.size(72.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
+                            PlayerArtViewMode.VINYL_DISC -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clickable {
+                                            viewMode = PlayerArtViewMode.LYRICS
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // Vinyl turntable disc with authentic concentric grooves & sheen
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.78f)
+                                            .aspectRatio(1f)
+                                            .shadow(24.dp, shape = CircleShape)
+                                            .clip(CircleShape)
+                                            .graphicsLayer {
+                                                rotationZ = if (isPlaying) vinylRotation else 0f
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        // Draw vinyl micro-grooves and light reflection
+                                        Canvas(modifier = Modifier.fillMaxSize()) {
+                                            val center = Offset(size.width / 2, size.height / 2)
+                                            val radius = size.width / 2
+
+                                            // Vinyl base plate
+                                            drawCircle(color = Color(0xFF0F1115), radius = radius)
+
+                                            // Concentric sound groove lines
+                                            val grooveRadii = floatArrayOf(0.92f, 0.86f, 0.80f, 0.74f, 0.68f)
+                                            for (factor in grooveRadii) {
+                                                drawCircle(
+                                                    color = Color(0x1AFFFFFF),
+                                                    radius = radius * factor,
+                                                    style = Stroke(width = 1.2f.dp.toPx())
+                                                )
+                                            }
+
+                                            // Radial specular light sheen
+                                            drawCircle(
+                                                brush = Brush.sweepGradient(
+                                                    colors = listOf(
+                                                        Color.Transparent,
+                                                        Color(0x22FFFFFF),
+                                                        Color.Transparent,
+                                                        Color.Transparent,
+                                                        Color(0x22FFFFFF),
+                                                        Color.Transparent
+                                                    ),
+                                                    center = center
+                                                ),
+                                                radius = radius
+                                            )
+
+                                            // Outer rim beveled edge
+                                            drawCircle(
+                                                color = Color(0x33FFFFFF),
+                                                radius = radius,
+                                                style = Stroke(width = 1.dp.toPx())
+                                            )
+                                        }
+
+                                        // Center album label
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.55f)
+                                                .aspectRatio(1f)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (artwork != null) {
+                                                    Image(
+                                                        bitmap = artwork.asImageBitmap(),
+                                                        contentDescription = null,
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Audiotrack,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(52.dp)
+                                                    )
+                                                }
+
+                                                // Center metallic spindle hole
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = Color(0xFF0F172A),
+                                                    border = BorderStroke(2.dp, Color(0xFF94A3B8)),
+                                                    modifier = Modifier.size(20.dp)
+                                                ) {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            PlayerArtViewMode.LYRICS -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clickable {
+                                            viewMode = PlayerArtViewMode.COVER_CARD
+                                        }
+                                ) {
+                                    LyricsView(
+                                        lyrics = lyrics,
+                                        currentPositionMs = currentPositionMs,
+                                        offsetMs = lyricsOffsetMs,
+                                        onSeekTo = onSeekTo,
+                                        onAdjustOffset = onAdjustLyricsOffset,
+                                        onResetOffset = onResetLyricsOffset
+                                    )
+                                }
+                            }
                         }
+                    }
+                }
 
-                        Spacer(modifier = Modifier.height(28.dp))
+                // Subtitle mode switcher pill (Cover / Vinyl / Lyrics)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            IconButton(
+                                onClick = { viewMode = PlayerArtViewMode.COVER_CARD },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Image,
+                                    contentDescription = "Cover",
+                                    tint = if (viewMode == PlayerArtViewMode.COVER_CARD) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewMode = PlayerArtViewMode.VINYL_DISC },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Album,
+                                    contentDescription = "Vinyl",
+                                    tint = if (viewMode == PlayerArtViewMode.VINYL_DISC) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewMode = PlayerArtViewMode.LYRICS },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lyrics,
+                                    contentDescription = "Lyrics",
+                                    tint = if (viewMode == PlayerArtViewMode.LYRICS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
 
-                        // Dynamic audio spectrum visualizer
-                        AudioVisualizer(
-                            isPlaying = isPlaying,
-                            modifier = Modifier.fillMaxWidth(0.75f),
-                            color = MaterialTheme.colorScheme.primary
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Track title, artist, and favorite button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = currentSong.title,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${currentSong.displayArtist} · ${currentSong.displayAlbum}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    IconButton(onClick = onToggleFavorite) {
+                        Icon(
+                            imageVector = if (currentSong.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (currentSong.isFavorite) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-            // Track title, artist, and favorite toggle button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = currentSong.title,
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${currentSong.displayArtist} · ${currentSong.displayAlbum}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                IconButton(onClick = onToggleFavorite) {
-                    Icon(
-                        imageVector = if (currentSong.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (currentSong.isFavorite) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Playback progress slider and time formatting
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Slider(
-                    value = progressFraction,
-                    onValueChange = { fraction ->
-                        isUserSeeking = true
-                        userSeekPositionMs = fraction * durationMs
-                    },
-                    onValueChangeFinished = {
-                        isUserSeeking = false
-                        onSeekTo(userSeekPositionMs.toLong())
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                // Real-time audio spectrum rhythm visualizer (synchronized with live FFT playback)
+                AudioVisualizer(
+                    spectrumData = visualizerSpectrum,
+                    isPlaying = isPlaying,
+                    modifier = Modifier.fillMaxWidth(),
+                    barCount = 24,
+                    primaryColor = dominantColor.takeIf { it != LuminaPrimary } ?: MaterialTheme.colorScheme.primary,
+                    accentColor = LuminaAccent
                 )
 
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Playback progress slider and time indicator
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Slider(
+                        value = progressFraction,
+                        onValueChange = { fraction ->
+                            isUserSeeking = true
+                            userSeekPositionMs = fraction * durationMs
+                        },
+                        onValueChangeFinished = {
+                            isUserSeeking = false
+                            onSeekTo(userSeekPositionMs.toLong())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        val posSec = displayPosition / 1000
+                        val durSec = durationMs / 1000
+                        val posFormatted = String.format("%02d:%02d", posSec / 60, posSec % 60)
+                        val durFormatted = String.format("%02d:%02d", durSec / 60, durSec % 60)
+
+                        Text(text = posFormatted, style = MaterialTheme.typography.labelSmall)
+                        Text(text = durFormatted, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Playback control buttons row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val posSec = displayPosition / 1000
-                    val durSec = durationMs / 1000
-                    val posFormatted = String.format("%02d:%02d", posSec / 60, posSec % 60)
-                    val durFormatted = String.format("%02d:%02d", durSec / 60, durSec % 60)
-
-                    Text(text = posFormatted, style = MaterialTheme.typography.labelSmall)
-                    Text(text = durFormatted, style = MaterialTheme.typography.labelSmall)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Core playback controls button row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Playback repeat/shuffle mode cycle button
-                IconButton(onClick = onCyclePlayMode) {
-                    val icon = when (playMode) {
-                        PlayMode.SEQUENTIAL, PlayMode.REPEAT_ALL -> Icons.Default.Repeat
-                        PlayMode.REPEAT_ONE -> Icons.Default.RepeatOne
-                        PlayMode.SHUFFLE -> Icons.Default.Shuffle
+                    // Playback repeat/shuffle cycle mode
+                    IconButton(onClick = onCyclePlayMode) {
+                        val icon = when (playMode) {
+                            PlayMode.SEQUENTIAL, PlayMode.REPEAT_ALL -> Icons.Default.Repeat
+                            PlayMode.REPEAT_ONE -> Icons.Default.RepeatOne
+                            PlayMode.SHUFFLE -> Icons.Default.Shuffle
+                        }
+                        val tint = if (playMode != PlayMode.SEQUENTIAL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        Icon(imageVector = icon, contentDescription = "Play Mode", tint = tint)
                     }
-                    val tint = if (playMode != PlayMode.SEQUENTIAL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    Icon(imageVector = icon, contentDescription = "Play Mode", tint = tint)
+
+                    // Previous song
+                    IconButton(onClick = onSkipPrevious) {
+                        Icon(
+                            imageVector = Icons.Default.SkipPrevious,
+                            contentDescription = "Previous",
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+
+                    // Play / Pause prominent circular button
+                    FilledIconButton(
+                        onClick = onTogglePlayPause,
+                        modifier = Modifier
+                            .size(68.dp)
+                            .shadow(12.dp, CircleShape, spotColor = MaterialTheme.colorScheme.primary),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+
+                    // Next song
+                    IconButton(onClick = onSkipNext) {
+                        Icon(
+                            imageVector = Icons.Default.SkipNext,
+                            contentDescription = "Next",
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+
+                    // Queue bottom sheet trigger
+                    IconButton(onClick = onOpenQueue) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.QueueMusic,
+                            contentDescription = "Queue",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
-                // Previous track
-                IconButton(onClick = onSkipPrevious) {
-                    Icon(
-                        imageVector = Icons.Default.SkipPrevious,
-                        contentDescription = "Previous",
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-
-                // Play / Pause prominent floating button
-                FilledIconButton(
-                    onClick = onTogglePlayPause,
-                    modifier = Modifier.size(68.dp),
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-
-                // Next track
-                IconButton(onClick = onSkipNext) {
-                    Icon(
-                        imageVector = Icons.Default.SkipNext,
-                        contentDescription = "Next",
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-
-                // Queue bottom sheet trigger button
-                IconButton(onClick = onOpenQueue) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.QueueMusic,
-                        contentDescription = "Queue",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
-}
 
-    // Dialog sheets and overlays
+    // Modal dialogs and sheets
     if (showAudioInfoDialog) {
         AudioInfoDialog(
             song = currentSong,

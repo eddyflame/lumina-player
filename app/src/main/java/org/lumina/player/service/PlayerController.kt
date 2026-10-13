@@ -77,9 +77,13 @@ class PlayerController(
     private val _playbackSpeed = MutableStateFlow(1.0f)
     val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
 
+    private val _visualizerSpectrum = MutableStateFlow(FloatArray(24) { 0.04f })
+    val visualizerSpectrum: StateFlow<FloatArray> = _visualizerSpectrum.asStateFlow()
+
     private var positionTrackerJob: Job? = null
     private var sleepTimerJob: Job? = null
     private var metadataJob: Job? = null
+    private var visualizerJob: Job? = null
     private var stopAtEndOfTrack = false
 
     private val serviceConnection = object : ServiceConnection {
@@ -87,6 +91,14 @@ class PlayerController(
             val localBinder = binder as? LuminaAudioService.LocalBinder
             service = localBinder?.getService()
             service?.player?.addListener(playerListener)
+
+            visualizerJob?.cancel()
+            visualizerJob = scope.launch {
+                service?.visualizerProcessor?.spectrumFlow?.collect { spectrum ->
+                    _visualizerSpectrum.value = spectrum
+                }
+            }
+
             _currentSong.value?.let { pendingSong ->
                 if (service?.player?.currentMediaItem == null) {
                     val shouldPlay = _isPlaying.value
@@ -101,6 +113,9 @@ class PlayerController(
 
         override fun onServiceDisconnected(name: ComponentName?) {
             service?.player?.removeListener(playerListener)
+            visualizerJob?.cancel()
+            visualizerJob = null
+            _visualizerSpectrum.value = FloatArray(24) { 0.04f }
             service = null
         }
     }
@@ -433,6 +448,8 @@ class PlayerController(
     private val fallbackDspController by lazy { AudioDspController() }
 
     fun getDspController(): AudioDspController = service?.dspController ?: fallbackDspController
+
+    fun getVisualizerProcessor(): org.lumina.player.core.dsp.VisualizerAudioProcessor? = service?.visualizerProcessor
 
     private fun onTrackEnded() {
         when (_playMode.value) {
