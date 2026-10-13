@@ -18,7 +18,7 @@ Please take a moment to review these guidelines before submitting issues or pull
 
 ### Getting the Code
 ```bash
-git clone https://github.com/your-username/lumina-player.git
+git clone https://github.com/eddyflame/lumina-player.git
 cd lumina-player
 ```
 

@@ -25,6 +25,6 @@ Lumina Player is built from the ground up as a **100% offline, privacy-first aud
 If you discover a security vulnerability or privacy concern within Lumina Player:
 
 1. **Do not disclose the issue publicly** in GitHub Issues or Discussions.
-2. Please report the issue via GitHub [Private Vulnerability Reporting](https://github.com/your-username/lumina-player/security/advisories/new) or send an email directly to the maintainer at `tp_eflame@163.com`.
+2. Please report the issue via GitHub [Private Vulnerability Reporting](https://github.com/eddyflame/lumina-player/security/advisories/new) or send an email directly to the maintainer at `tp_eflame@163.com`.
 3. Include detailed steps to reproduce the issue, sample audio files if applicable, and device/OS environment details.
 4. We will acknowledge receipt of your report within 48 hours and work with you to validate and remediate the issue promptly.

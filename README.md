@@ -2,7 +2,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Android-0284C7?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
-  <img src="https://img.shields.io/badge/Version-0.6.1-blueviolet?style=for-the-badge" alt="Version 0.6.1" />
+  <img src="https://img.shields.io/badge/Version-0.6.2-blueviolet?style=for-the-badge" alt="Version 0.6.2" />
   <img src="https://img.shields.io/badge/Kotlin-2.2.20-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2" />
   <img src="https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Material 3" />
   <img src="https://img.shields.io/badge/Media3-ExoPlayer_1.5-emerald?style=for-the-badge" alt="AndroidX Media3" />
@@ -117,7 +117,7 @@ graph TD
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/lumina-player.git
+git clone https://github.com/eddyflame/lumina-player.git
 cd lumina-player
 
 # Build Debug APK
