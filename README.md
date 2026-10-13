@@ -49,6 +49,9 @@
 - **Ambient Flow Glow**: Dynamically tinted gradient backgrounds derived from album art colors;
 - **Fluid Gestures**: Interactive Mini Player bar with swipe-to-switch and pull-up fullscreen expansion.
 
+### 📱 Desktop Playback Widget
+- **Home Screen Control**: Clean Material 3 style desktop widget displaying current track title, artist, and playback status with interactive Play/Pause, Previous, and Next buttons.
+
 ### 🛡️ Pure Offline & Zero Tracking
 - **No Internet Required**: 100% offline, zero network requests, zero telemetry, and zero ads.
 

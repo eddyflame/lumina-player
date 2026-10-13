@@ -108,6 +108,7 @@ fun LuminaPlayerApp(
     val techInfo by app.playerController.currentTechInfo.collectAsState()
     val sleepTimerRemainingSeconds by app.playerController.sleepTimerRemainingSeconds.collectAsState()
     val playbackSpeed by app.playerController.playbackSpeed.collectAsState()
+    val currentArtwork by app.playerController.currentArtwork.collectAsState()
 
     var isFullPlayerOpen by remember { mutableStateOf(false) }
     var isQueueOpen by remember { mutableStateOf(false) }
@@ -188,6 +189,7 @@ fun LuminaPlayerApp(
                 isPlaying = isPlaying,
                 currentPositionMs = currentPositionMs,
                 durationMs = durationMs,
+                artwork = currentArtwork,
                 onSongClick = { song, songList ->
                     app.playerController.playSong(song, songList)
                 },
@@ -218,6 +220,7 @@ fun LuminaPlayerApp(
                         sleepTimerRemainingSeconds = sleepTimerRemainingSeconds,
                         playbackSpeed = playbackSpeed,
                         dspController = app.playerController.getDspController(),
+                        artwork = currentArtwork,
                         onTogglePlayPause = { app.playerController.togglePlayPause() },
                         onSkipNext = { app.playerController.skipNext() },
                         onSkipPrevious = { app.playerController.skipPrevious() },

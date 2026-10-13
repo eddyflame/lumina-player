@@ -24,6 +24,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Audiotrack
@@ -34,12 +37,9 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.Sort
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -100,6 +100,7 @@ fun MainLibraryScreen(
     isPlaying: Boolean,
     currentPositionMs: Long,
     durationMs: Long,
+    artwork: android.graphics.Bitmap? = null,
     onSongClick: (Song, List<Song>) -> Unit,
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
@@ -182,7 +183,7 @@ fun MainLibraryScreen(
                             }
                             Box {
                                 IconButton(onClick = { showSortMenu = true }) {
-                                    Icon(Icons.Default.Sort, contentDescription = "Sort")
+                                    Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
                                 }
                                 DropdownMenu(
                                     expanded = showSortMenu,
@@ -246,6 +247,7 @@ fun MainLibraryScreen(
                 isPlaying = isPlaying,
                 currentPositionMs = currentPositionMs,
                 durationMs = durationMs,
+                artwork = artwork,
                 onTogglePlayPause = onTogglePlayPause,
                 onSkipNext = onSkipNext,
                 onOpenQueue = onOpenQueue,
@@ -694,7 +696,7 @@ private fun PlaylistsTab(
                 SmartPlaylistCard(
                     title = stringResource(R.string.most_played),
                     count = mostPlayedCount,
-                    icon = Icons.Default.TrendingUp,
+                    icon = Icons.AutoMirrored.Filled.TrendingUp,
                     iconTint = HiResGold,
                     onClick = onOpenMostPlayed
                 )
@@ -737,7 +739,7 @@ private fun PlaylistsTab(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.PlaylistPlay,
+                        imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(28.dp)

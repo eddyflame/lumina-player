@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Equalizer
@@ -37,7 +38,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
@@ -68,6 +68,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -102,6 +103,7 @@ fun FullPlayerScreen(
     sleepTimerRemainingSeconds: Long?,
     playbackSpeed: Float,
     dspController: org.lumina.player.core.dsp.AudioDspController?,
+    artwork: android.graphics.Bitmap? = null,
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
@@ -132,6 +134,17 @@ fun FullPlayerScreen(
     val displayPosition = if (isUserSeeking) userSeekPositionMs.toLong() else currentPositionMs
     val progressFraction = if (durationMs > 0) (displayPosition.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
 
+    // 提取封面动态主色 (Palette)
+    val dominantColor = remember(artwork) {
+        if (artwork != null) {
+            val palette = androidx.palette.graphics.Palette.from(artwork).generate()
+            val rgb = palette.getVibrantColor(palette.getDominantColor(0xFF0284C7.toInt()))
+            Color(rgb)
+        } else {
+            LuminaPrimary
+        }
+    }
+
     // 唱片平滑旋转动画
     val infiniteTransition = rememberInfiniteTransition(label = "vinyl")
     val vinylRotation by infiniteTransition.animateFloat(
@@ -147,7 +160,7 @@ fun FullPlayerScreen(
     // 动态流光渐变背景
     val ambientGradient = Brush.verticalGradient(
         colors = listOf(
-            LuminaPrimary.copy(alpha = 0.28f),
+            dominantColor.copy(alpha = 0.32f),
             MaterialTheme.colorScheme.background,
             MaterialTheme.colorScheme.background
         )
@@ -295,12 +308,21 @@ fun FullPlayerScreen(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Audiotrack,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(56.dp)
-                                    )
+                                    if (artwork != null) {
+                                        androidx.compose.foundation.Image(
+                                            bitmap = artwork.asImageBitmap(),
+                                            contentDescription = null,
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Audiotrack,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(56.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -439,7 +461,7 @@ fun FullPlayerScreen(
                 // 播放队列展开按钮
                 IconButton(onClick = onOpenQueue) {
                     Icon(
-                        imageVector = Icons.Default.QueueMusic,
+                        imageVector = Icons.AutoMirrored.Filled.QueueMusic,
                         contentDescription = "Queue",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package org.lumina.player.core.dsp
 
 import android.media.audiofx.BassBoost
@@ -16,6 +18,7 @@ data class EqPreset(
 /**
  * DSP 音效引擎控制器
  */
+@Suppress("DEPRECATION")
 class AudioDspController {
 
     private var equalizer: Equalizer? = null

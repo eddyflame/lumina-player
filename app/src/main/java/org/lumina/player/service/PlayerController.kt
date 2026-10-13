@@ -68,6 +68,9 @@ class PlayerController(
     private val _sleepTimerRemainingSeconds = MutableStateFlow<Long?>(null)
     val sleepTimerRemainingSeconds: StateFlow<Long?> = _sleepTimerRemainingSeconds.asStateFlow()
 
+    private val _currentArtwork = MutableStateFlow<android.graphics.Bitmap?>(null)
+    val currentArtwork: StateFlow<android.graphics.Bitmap?> = _currentArtwork.asStateFlow()
+
     private val _playbackSpeed = MutableStateFlow(1.0f)
     val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
 
@@ -91,6 +94,7 @@ class PlayerController(
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(playing: Boolean) {
             _isPlaying.value = playing
+            notifyWidgetUpdate()
             if (playing) {
                 startPositionTracker()
             } else {
@@ -148,9 +152,15 @@ class PlayerController(
         _currentPositionMs.value = 0L
         _durationMs.value = song.durationMs
         _lyricsOffsetMs.value = 0L
+        _currentArtwork.value = null
+        notifyWidgetUpdate()
 
-        // 加载歌词与技术参数
+        // 加载封面、歌词与技术参数
         scope.launch(Dispatchers.IO) {
+            val art = AudioTagReader.extractArtwork(context, song.uri, song.filePath)
+            _currentArtwork.value = art
+            notifyWidgetUpdate()
+
             val meta = AudioTagReader.extractMetadata(context, song.uri, song.filePath)
             _currentTechInfo.value = meta.technicalInfo
 
@@ -272,7 +282,9 @@ class PlayerController(
         _queue.value = emptyList()
         _queueIndex.value = -1
         _currentSong.value = null
+        _currentArtwork.value = null
         _isPlaying.value = false
+        notifyWidgetUpdate()
     }
 
     fun setSleepTimer(minutes: Int) {
@@ -358,6 +370,15 @@ class PlayerController(
 
     private fun stopPositionTracker() {
         positionTrackerJob?.cancel()
+    }
+
+    private fun notifyWidgetUpdate() {
+        org.lumina.player.ui.widget.LuminaPlayerWidgetProvider.updateAll(
+            context,
+            _currentSong.value,
+            _isPlaying.value,
+            _currentArtwork.value
+        )
     }
 
     fun release() {
