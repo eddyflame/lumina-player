@@ -52,4 +52,13 @@ class PlayModeAndDspTest {
         dsp.setEnabled(false)
         assertFalse(dsp.isEnabled())
     }
+
+    @Test
+    fun testVisualizerProcessorAntiPopRamp() {
+        val proc = org.lumina.player.core.dsp.VisualizerAudioProcessor(barCount = 24)
+        proc.triggerSoftRamp()
+        // Ensure triggerSoftRamp arms without exceptions
+        proc.resetSpectrum()
+        assertEquals(24, proc.spectrumFlow.value.size)
+    }
 }

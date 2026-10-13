@@ -17,6 +17,7 @@ import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import android.media.AudioManager
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
@@ -27,8 +28,11 @@ import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.lumina.player.LuminaApp
 import org.lumina.player.MainActivity
@@ -49,6 +53,7 @@ class LuminaAudioService : MediaSessionService() {
     val dspController = AudioDspController()
     val visualizerProcessor = org.lumina.player.core.dsp.VisualizerAudioProcessor(barCount = 24)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var volumeRampJob: Job? = null
 
     private var wakeLock: PowerManager.WakeLock? = null
     private val binder = LocalBinder()
@@ -95,6 +100,9 @@ class LuminaAudioService : MediaSessionService() {
             visualizerProcessor
         )
 
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val explicitSessionId = audioManager.generateAudioSessionId()
+
         player = ExoPlayer.Builder(this, renderersFactory)
             .setAudioAttributes(audioAttributes, true) // Automatically handle audio focus
             .setHandleAudioBecomingNoisy(true) // Auto-pause on headphone disconnection
@@ -102,13 +110,14 @@ class LuminaAudioService : MediaSessionService() {
             .setSeekParameters(androidx.media3.exoplayer.SeekParameters.EXACT)
             .build()
 
-        // Attach system audio session for equalizer asynchronously & maintain CPU wake lock during active playback
+        player.setAudioSessionId(explicitSessionId)
+        dspController.attachAudioSession(explicitSessionId)
+
+        // Maintain CPU wake lock during active playback and observe session changes
         player.addListener(object : Player.Listener {
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
-                if (audioSessionId != C.AUDIO_SESSION_ID_UNSET && audioSessionId != 0) {
-                    serviceScope.launch {
-                        dspController.attachAudioSession(audioSessionId)
-                    }
+                if (audioSessionId != C.AUDIO_SESSION_ID_UNSET && audioSessionId != 0 && audioSessionId != explicitSessionId) {
+                    dspController.attachAudioSession(audioSessionId)
                 }
             }
 
@@ -121,13 +130,6 @@ class LuminaAudioService : MediaSessionService() {
                 }
             }
         })
-
-        val initialSessionId = player.audioSessionId
-        if (initialSessionId != C.AUDIO_SESSION_ID_UNSET && initialSessionId != 0) {
-            serviceScope.launch {
-                dspController.attachAudioSession(initialSessionId)
-            }
-        }
 
         // Create low-importance, silent notification channel for non-intrusive lockscreen controls
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -295,6 +297,14 @@ class LuminaAudioService : MediaSessionService() {
             playerCommand: Int
         ): Int {
             when (playerCommand) {
+                Player.COMMAND_PLAY_PAUSE -> {
+                    if (player.isPlaying) {
+                        pauseWithRamp()
+                    } else {
+                        playWithRamp()
+                    }
+                    return SessionResult.RESULT_SUCCESS
+                }
                 Player.COMMAND_SEEK_TO_NEXT,
                 Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
                     LuminaApp.instance.playerController.skipNext()
@@ -320,6 +330,86 @@ class LuminaAudioService : MediaSessionService() {
             superBinder
         } else {
             binder
+        }
+    }
+
+    /**
+     * Resumes or starts playback with a raised-cosine micro volume ramp (~42ms)
+     * eliminating DAC capacitor and buffer step popping.
+     */
+    fun playWithRamp(targetVolume: Float = 1.0f) {
+        volumeRampJob?.cancel()
+        visualizerProcessor.triggerSoftRamp()
+        player.volume = 0f
+        player.play()
+        volumeRampJob = serviceScope.launch(Dispatchers.Main) {
+            val steps = 6
+            val stepDelayMs = 7L
+            for (i in 1..steps) {
+                if (!isActive) return@launch
+                val fraction = i.toFloat() / steps.toFloat()
+                val gain = (0.5f - 0.5f * kotlin.math.cos(Math.PI * fraction).toFloat()) * targetVolume
+                player.volume = gain.coerceIn(0f, 1f)
+                delay(stepDelayMs)
+            }
+            player.volume = targetVolume
+        }
+    }
+
+    /**
+     * Pauses playback with a micro volume fade-out (~20ms) to eliminate audio-track
+     * cutoff DC offset click.
+     */
+    fun pauseWithRamp(onComplete: (() -> Unit)? = null) {
+        if (!player.isPlaying) {
+            player.pause()
+            onComplete?.invoke()
+            return
+        }
+        volumeRampJob?.cancel()
+        volumeRampJob = serviceScope.launch(Dispatchers.Main) {
+            val currentVol = player.volume
+            val steps = 4
+            val stepDelayMs = 5L
+            for (i in 1..steps) {
+                if (!isActive) return@launch
+                val fraction = 1f - (i.toFloat() / steps.toFloat())
+                val gain = (0.5f - 0.5f * kotlin.math.cos(Math.PI * fraction).toFloat()) * currentVol
+                player.volume = gain.coerceIn(0f, 1f)
+                delay(stepDelayMs)
+            }
+            player.pause()
+            player.volume = 0f
+            onComplete?.invoke()
+        }
+    }
+
+    /**
+     * Smoothly dips volume during seeking to eliminate PCM decode jump popping.
+     */
+    fun seekWithRamp(positionMs: Long) {
+        volumeRampJob?.cancel()
+        val wasPlaying = player.isPlaying
+        volumeRampJob = serviceScope.launch(Dispatchers.Main) {
+            if (wasPlaying) {
+                player.volume = 0f
+            }
+            player.seekTo(positionMs)
+            visualizerProcessor.triggerSoftRamp()
+            if (wasPlaying) {
+                val steps = 5
+                val stepDelayMs = 7L
+                for (i in 1..steps) {
+                    if (!isActive) return@launch
+                    val fraction = i.toFloat() / steps.toFloat()
+                    val gain = (0.5f - 0.5f * kotlin.math.cos(Math.PI * fraction).toFloat()) * 1.0f
+                    player.volume = gain.coerceIn(0f, 1f)
+                    delay(stepDelayMs)
+                }
+                player.volume = 1.0f
+            } else {
+                player.volume = 0f
+            }
         }
     }
 
@@ -363,7 +453,12 @@ class LuminaAudioService : MediaSessionService() {
             player.seekTo(startPositionMs)
         }
         player.prepare()
-        player.playWhenReady = playWhenReady
+        if (playWhenReady) {
+            playWithRamp()
+        } else {
+            player.playWhenReady = false
+            player.volume = 0f
+        }
 
         mediaSession?.let { session ->
             onUpdateNotification(session, true)
@@ -403,6 +498,7 @@ class LuminaAudioService : MediaSessionService() {
                 player.release()
             }
         }
+        volumeRampJob?.cancel()
         dspController.release()
         visualizerProcessor.resetSpectrum()
         serviceScope.cancel()

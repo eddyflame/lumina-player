@@ -62,8 +62,8 @@ class VisualizerAudioProcessor(
     private var encoding = C.ENCODING_PCM_16BIT
     private var lastEmitTimeMs = 0L
 
-    // Anti-pop micro soft ramp (25ms smooth gain fade-in on startup, unpause, and seek)
-    private var totalRampFrames = (44100 * 25) / 1000
+    // Anti-pop micro soft ramp (35ms smooth raised-cosine gain fade-in on startup, unpause, and seek)
+    private var totalRampFrames = (44100 * 35) / 1000
     private var rampFramesRemaining = totalRampFrames
 
     private var decayJob: Job? = null
@@ -80,7 +80,7 @@ class VisualizerAudioProcessor(
         channelCount = inputAudioFormat.channelCount.takeIf { it > 0 } ?: 2
         encoding = inputAudioFormat.encoding
         computeBandRanges(sampleRate)
-        totalRampFrames = ((sampleRate * 25) / 1000).coerceAtLeast(64)
+        totalRampFrames = ((sampleRate * 35) / 1000).coerceAtLeast(64)
         rampFramesRemaining = totalRampFrames
         return inputAudioFormat // Pass-through unaltered audio
     }
@@ -101,22 +101,63 @@ class VisualizerAudioProcessor(
         outputBuffer.put(inputBuffer)
         outputBuffer.flip()
 
-        // Apply hardware anti-pop soft ramp envelope on audio track start / seek
-        if (encoding == C.ENCODING_PCM_16BIT && rampFramesRemaining > 0) {
-            val bytesPerFrame = channelCount * 2
-            if (bytesPerFrame > 0) {
+        // Apply hardware anti-pop soft ramp envelope on audio track start / seek / unpause
+        if (rampFramesRemaining > 0) {
+            val bytesPerSample = when (encoding) {
+                C.ENCODING_PCM_16BIT -> 2
+                C.ENCODING_PCM_24BIT -> 3
+                C.ENCODING_PCM_32BIT, C.ENCODING_PCM_FLOAT -> 4
+                else -> 0
+            }
+            val bytesPerFrame = channelCount * bytesPerSample
+            if (bytesPerFrame > 0 && remaining >= bytesPerFrame) {
                 val totalFrames = remaining / bytesPerFrame
                 val framesToRamp = totalFrames.coerceAtMost(rampFramesRemaining)
                 val out = outputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN)
                 for (f in 0 until framesToRamp) {
                     val currentRampIndex = totalRampFrames - rampFramesRemaining
-                    val gain = (currentRampIndex.toFloat() / totalRampFrames.toFloat()).coerceIn(0f, 1f)
+                    val fraction = currentRampIndex.toFloat() / totalRampFrames.toFloat()
+                    // Raised cosine (Hann) window for mathematically continuous zero-derivative ramp
+                    val gain = (0.5f - 0.5f * kotlin.math.cos(Math.PI * fraction).toFloat()).coerceIn(0f, 1f)
                     val frameOffset = f * bytesPerFrame
-                    for (ch in 0 until channelCount) {
-                        val samplePos = frameOffset + ch * 2
-                        val sample = out.getShort(samplePos)
-                        val ramped = (sample * gain).toInt().coerceIn(-32768, 32767).toShort()
-                        out.putShort(samplePos, ramped)
+
+                    when (encoding) {
+                        C.ENCODING_PCM_16BIT -> {
+                            for (ch in 0 until channelCount) {
+                                val samplePos = frameOffset + ch * 2
+                                val sample = out.getShort(samplePos)
+                                val ramped = (sample * gain).toInt().coerceIn(-32768, 32767).toShort()
+                                out.putShort(samplePos, ramped)
+                            }
+                        }
+                        C.ENCODING_PCM_24BIT -> {
+                            for (ch in 0 until channelCount) {
+                                val samplePos = frameOffset + ch * 3
+                                val b0 = out.get(samplePos).toInt() and 0xFF
+                                val b1 = out.get(samplePos + 1).toInt() and 0xFF
+                                val b2 = out.get(samplePos + 2).toInt()
+                                val sample = (b2 shl 16) or (b1 shl 8) or b0
+                                val ramped = (sample * gain).toInt().coerceIn(-8388608, 8388607)
+                                out.put(samplePos, (ramped and 0xFF).toByte())
+                                out.put(samplePos + 1, ((ramped shr 8) and 0xFF).toByte())
+                                out.put(samplePos + 2, ((ramped shr 16) and 0xFF).toByte())
+                            }
+                        }
+                        C.ENCODING_PCM_32BIT -> {
+                            for (ch in 0 until channelCount) {
+                                val samplePos = frameOffset + ch * 4
+                                val sample = out.getInt(samplePos)
+                                val ramped = (sample * gain.toDouble()).toLong().coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
+                                out.putInt(samplePos, ramped)
+                            }
+                        }
+                        C.ENCODING_PCM_FLOAT -> {
+                            for (ch in 0 until channelCount) {
+                                val samplePos = frameOffset + ch * 4
+                                val sample = out.getFloat(samplePos)
+                                out.putFloat(samplePos, sample * gain)
+                            }
+                        }
                     }
                     rampFramesRemaining--
                 }
@@ -285,6 +326,14 @@ class VisualizerAudioProcessor(
         super.onReset()
         resetSpectrum()
         pcmSampleIndex = 0
+        rampFramesRemaining = totalRampFrames
+    }
+
+    /**
+     * Re-arms the anti-pop soft ramp envelope so the next audio frames fade in smoothly.
+     * Called whenever playback resumes, seeks, or unpauses.
+     */
+    fun triggerSoftRamp() {
         rampFramesRemaining = totalRampFrames
     }
 

@@ -83,12 +83,14 @@ Lumina Player is engineered to support the widest possible spectrum of local aud
 * **Audio Focus & Unplug Handling**: Automatic audio focus acquisition with ducking, and immediate auto-pause on headphone disconnection (`handleAudioBecomingNoisy = true`).
 * **Clipping Configuration for CUE Tracks**: For virtual CUE songs, `MediaItem.ClippingConfiguration` precisely boundaries playback to `startMs` and `endMs` seamlessly.
 
-### 4.2 DSP & Audio Effects
+### 4.2 DSP, Audio Effects & Multi-Tier Anti-Pop Engine
+* **Preallocated Fixed Audio Session ID**: Generates an explicit `audioSessionId` via `AudioManager` on service startup and attaches `AudioDspController` effects synchronously prior to stream initialization, eliminating runtime HAL effect chain insertion glitches.
+* **Master Volume Raised-Cosine Soft Ramp**: Applies a continuous Hann envelope fade-in (~42ms) when resuming or starting playback, and a smooth fade-out (~20ms) when pausing or seeking, completely eliminating DAC capacitor charging spikes and buffer step-function popping.
+* **PCM Buffer Anti-Pop Processor**: `VisualizerAudioProcessor` enforces a 35ms raised-cosine gain envelope directly on decoded audio frames across 16-bit, 24-bit, 32-bit, and Float PCM encodings upon unpause, flush, or seek.
 * **10-Band Graphic Equalizer**: Connects to the active Android `audioSessionId` with instant preset synchronization and custom curve detection.
-* **Presets & Custom Gain**: Flat, Rock, Pop, Jazz, Classical, Metal, HipHop presets with ±15 dB per-band adjustments.
-* **Bass Boost & 3D Virtualizer**: Dynamic audio enhancement with ~60ms anti-pop step interpolation and hardware passthrough persistence (avoids crackling/popping on slider release).
+* **Zero-Strength HAL Passthrough**: Effects (BassBoost, Virtualizer, Equalizer) are only activated in AudioFlinger when non-zero gain is requested, preventing HAL volume intercept collisions on cold start while retaining ~60ms smooth step interpolation during slider adjustments.
 * **Sleep Timer with Soft Fade-Out**: In the last 10 seconds of countdown, master volume gently interpolates down to zero before pausing playback, ensuring comfortable transitions.
-* **Playback Mode & State Persistence**: Seamlessly restores play mode (repeat/shuffle), track index, and position on app restart.
+* **Playback Mode & State Persistence**: Seamlessly restores play mode (repeat/shuffle), track index, and position on app restart with muted cold-start preroll.
 
 ### 4.3 Zero-Reflection Reactive Persistence (`MusicDatabase`)
 * Avoids KSP annotation-processor brittleness across rapid Kotlin 2.x and AGP upgrades.

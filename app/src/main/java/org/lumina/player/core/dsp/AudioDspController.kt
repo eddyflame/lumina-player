@@ -98,7 +98,8 @@ class AudioDspController {
                     setStrength(bassBoostStrength)
                 }
                 liveBassStrength = bassBoostStrength
-                enabled = isEnabled
+                // Only enable when strength > 0 to prevent HAL volume intercept and pipeline insertion pops
+                enabled = isEnabled && bassBoostStrength > 0
             }
         }
 
@@ -108,7 +109,8 @@ class AudioDspController {
                     setStrength(virtualizerStrength)
                 }
                 liveVirtualizerStrength = virtualizerStrength
-                enabled = isEnabled
+                // Only enable when strength > 0 to prevent HAL volume intercept and pipeline insertion pops
+                enabled = isEnabled && virtualizerStrength > 0
             }
         }
     }
@@ -116,8 +118,8 @@ class AudioDspController {
     fun setEnabled(enabled: Boolean) {
         isEnabled = enabled
         equalizer?.enabled = enabled && currentBandLevels.any { it != 0.toShort() }
-        bassBoost?.enabled = enabled
-        virtualizer?.enabled = enabled
+        bassBoost?.enabled = enabled && bassBoostStrength > 0
+        virtualizer?.enabled = enabled && virtualizerStrength > 0
         onPreferencesChanged?.invoke(enabled, bassBoostStrength, virtualizerStrength)
     }
 
@@ -160,7 +162,7 @@ class AudioDspController {
 
         val bb = bassBoost ?: return
 
-        if (!bb.enabled && isEnabled) {
+        if (!bb.enabled && isEnabled && targetStrength > 0) {
             runCatching { bb.enabled = true }
         }
 
@@ -211,7 +213,7 @@ class AudioDspController {
 
         val virt = virtualizer ?: return
 
-        if (!virt.enabled && isEnabled) {
+        if (!virt.enabled && isEnabled && targetStrength > 0) {
             runCatching { virt.enabled = true }
         }
 

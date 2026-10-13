@@ -278,7 +278,8 @@ class PlayerController(
     }
 
     fun togglePlayPause() {
-        val player = service?.player
+        val s = service
+        val player = s?.player
         if (player == null || player.currentMediaItem == null) {
             _currentSong.value?.let { restoredSong ->
                 val startPos = _currentPositionMs.value
@@ -287,10 +288,10 @@ class PlayerController(
             }
         }
         if (player?.isPlaying == true) {
-            player.pause()
+            s?.pauseWithRamp()
         } else {
             if (_currentSong.value != null) {
-                player?.play()
+                s?.playWithRamp()
             } else if (_queue.value.isNotEmpty()) {
                 val first = _queue.value.first()
                 playSong(first)
@@ -299,7 +300,8 @@ class PlayerController(
     }
 
     fun play() {
-        val player = service?.player
+        val s = service
+        val player = s?.player
         if (player == null || player.currentMediaItem == null) {
             _currentSong.value?.let { restoredSong ->
                 val startPos = _currentPositionMs.value
@@ -307,23 +309,32 @@ class PlayerController(
                 return
             }
         }
-        player?.play()
+        s?.playWithRamp()
     }
 
     fun pause() {
-        service?.player?.pause()
-        val pos = service?.player?.currentPosition ?: _currentPositionMs.value
-        if (pos > 0) {
-            audioPreferences.setLastPositionMs(pos)
+        val s = service
+        if (s != null) {
+            s.pauseWithRamp {
+                val pos = s.player.currentPosition
+                if (pos > 0) {
+                    audioPreferences.setLastPositionMs(pos)
+                }
+            }
+        } else {
+            val pos = _currentPositionMs.value
+            if (pos > 0) {
+                audioPreferences.setLastPositionMs(pos)
+            }
         }
     }
 
     fun seekTo(positionMs: Long) {
-        val player = service?.player ?: return
+        val s = service ?: return
         val duration = _durationMs.value
         val safePosition = if (duration > 0) positionMs.coerceIn(0L, duration) else positionMs.coerceAtLeast(0L)
         _currentPositionMs.value = safePosition
-        player.seekTo(safePosition)
+        s.seekWithRamp(safePosition)
         audioPreferences.setLastPositionMs(safePosition)
     }
 
