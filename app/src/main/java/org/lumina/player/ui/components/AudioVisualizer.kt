@@ -1,32 +1,30 @@
 package org.lumina.player.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.unit.dp
-import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
 /**
  * Authentic Siri / Apple Intelligence Luminous Glowing Fluid Aura.
- * Completely autonomous, serene fluid convection with pure, saturated Apple neon jewel tones.
- * Independent of raw audio transients for a relaxing, hypnotic, and 100% spasm-free visual experience.
+ * Completely autonomous, continuous fluid convection with pure, saturated Apple neon jewel tones.
+ * Features a seamless monotonic time integration engine without periodic restart resets or discontinuities,
+ * guaranteeing 100% continuous, twitch-free, silky-smooth motion.
  */
 @Composable
 fun AudioVisualizer(
@@ -34,49 +32,33 @@ fun AudioVisualizer(
     isPlaying: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    // 3 continuous, asynchronous harmonic phase angles driving the organic Siri orbital convection
-    val infiniteTransition = rememberInfiniteTransition(label = "siri_ambient_aura")
+    // Monotonically integrated continuous time state (seconds).
+    // Using frame delta integration avoids periodic modulo resets or restart discontinuities,
+    // ensuring mathematically continuous, infinitely smooth motion without any jerks or twitches.
+    var timeSeconds by remember { mutableDoubleStateOf(0.0) }
 
-    val phasePrimary by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "siri_phase_primary"
-    )
-
-    val phaseSecondary by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 8000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "siri_phase_secondary"
-    )
-
-    val phasePulse by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 6000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "siri_phase_pulse"
-    )
+    LaunchedEffect(isPlaying) {
+        var lastFrameNanos = 0L
+        while (true) {
+            withFrameNanos { frameTimeNanos ->
+                if (lastFrameNanos != 0L) {
+                    val dt = (frameTimeNanos - lastFrameNanos) / 1_000_000_000.0
+                    // Continuous velocity integration:
+                    // Standard serene gliding speed when playing, gentle resting drift when paused
+                    val speedFactor = if (isPlaying) 1.0 else 0.35
+                    timeSeconds += dt * speedFactor
+                }
+                lastFrameNanos = frameTimeNanos
+            }
+        }
+    }
 
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawSiriLuminousAura(
-                phase1 = phasePrimary,
-                phase2 = phaseSecondary,
-                pulse = phasePulse
-            )
+            drawSiriLuminousAura(time = timeSeconds)
         }
     }
 }
@@ -85,23 +67,23 @@ fun AudioVisualizer(
  * Renders the authentic Apple Siri / Apple Intelligence glowing fluid orb convection.
  * Features pure saturated jewel tones (Electric Cyan, Vivid Magenta, Royal Violet, Luminous Amber)
  * overlapping with translucent optical color-mixing against a pristine pure dark canvas.
+ * Driven by smooth continuous harmonic trigonometric functions of monotonic time.
  */
 private fun DrawScope.drawSiriLuminousAura(
-    phase1: Float,
-    phase2: Float,
-    pulse: Float
+    time: Double
 ) {
     val width = size.width
     val height = size.height
     val centerX = width * 0.50f
     val centerY = height * 0.50f
-    val baseOrbRadius = min(width, height) * 0.40f
+    val baseOrbRadius = min(width, height) * 0.42f
+    val t = time
 
     // 1. Siri Electric Violet / Royal Purple Orb (深邃电光紫)
-    val violetX = centerX + sin(phase2 * 1.1f + 2.0f).toFloat() * (width * 0.16f)
-    val violetY = centerY + cos(phase1 * 0.9f + 1.5f).toFloat() * (height * 0.13f)
-    val violetRadius = baseOrbRadius * (1.05f + sin(pulse * 0.9f).toFloat() * 0.12f)
-    val violetAlpha = 0.55f + cos(phase2).toFloat() * 0.08f
+    val violetX = centerX + sin(t * 0.35 + 1.2).toFloat() * (width * 0.16f)
+    val violetY = centerY + cos(t * 0.30 + 2.0).toFloat() * (height * 0.13f)
+    val violetRadius = baseOrbRadius * (1.05f + sin(t * 0.45).toFloat() * 0.10f)
+    val violetAlpha = 0.55f + cos(t * 0.28).toFloat() * 0.08f
 
     drawCircle(
         brush = Brush.radialGradient(
@@ -119,10 +101,10 @@ private fun DrawScope.drawSiriLuminousAura(
     )
 
     // 2. Siri Luminous Amber / Warm Sunrise Gold Orb (温暖日出金)
-    val amberX = centerX - sin(phase1 * 1.1f - 1.0f).toFloat() * (width * 0.15f)
-    val amberY = centerY + cos(phase2 * 0.8f - 0.5f).toFloat() * (height * 0.11f)
-    val amberRadius = baseOrbRadius * (0.88f + cos(pulse * 0.7f).toFloat() * 0.10f)
-    val amberAlpha = 0.52f + sin(phase1).toFloat() * 0.08f
+    val amberX = centerX - sin(t * 0.42 - 0.8).toFloat() * (width * 0.15f)
+    val amberY = centerY + cos(t * 0.36 + 0.5).toFloat() * (height * 0.11f)
+    val amberRadius = baseOrbRadius * (0.88f + cos(t * 0.38).toFloat() * 0.10f)
+    val amberAlpha = 0.52f + sin(t * 0.32).toFloat() * 0.08f
 
     drawCircle(
         brush = Brush.radialGradient(
@@ -140,10 +122,10 @@ private fun DrawScope.drawSiriLuminousAura(
     )
 
     // 3. Siri Vivid Magenta / Hot Pink Orb (标志性明艳洋红)
-    val magentaX = centerX - cos(phase1 * 0.85f + 1.2f).toFloat() * (width * 0.18f)
-    val magentaY = centerY - sin(phase2 + 0.8f).toFloat() * (height * 0.14f)
-    val magentaRadius = baseOrbRadius * (1.00f + cos(pulse * 1.1f).toFloat() * 0.14f)
-    val magentaAlpha = 0.56f + sin(pulse).toFloat() * 0.08f
+    val magentaX = centerX - cos(t * 0.28 + 1.5).toFloat() * (width * 0.18f)
+    val magentaY = centerY - sin(t * 0.34 + 0.8).toFloat() * (height * 0.14f)
+    val magentaRadius = baseOrbRadius * (1.00f + cos(t * 0.42).toFloat() * 0.12f)
+    val magentaAlpha = 0.56f + sin(t * 0.38).toFloat() * 0.08f
 
     drawCircle(
         brush = Brush.radialGradient(
@@ -161,10 +143,10 @@ private fun DrawScope.drawSiriLuminousAura(
     )
 
     // 4. Siri Electric Cyan / Bright Aqua Orb (纯净电光天青)
-    val cyanX = centerX + cos(phase1).toFloat() * (width * 0.18f) - sin(phase2 * 0.5f).toFloat() * (width * 0.08f)
-    val cyanY = centerY + sin(phase1).toFloat() * (height * 0.12f)
-    val cyanRadius = baseOrbRadius * (0.95f + sin(pulse).toFloat() * 0.12f)
-    val cyanAlpha = 0.58f + cos(pulse * 0.8f).toFloat() * 0.08f
+    val cyanX = centerX + cos(t * 0.45).toFloat() * (width * 0.18f) - sin(t * 0.22).toFloat() * (width * 0.08f)
+    val cyanY = centerY + sin(t * 0.38 + 1.8).toFloat() * (height * 0.12f)
+    val cyanRadius = baseOrbRadius * (0.95f + sin(t * 0.46).toFloat() * 0.12f)
+    val cyanAlpha = 0.58f + cos(t * 0.30).toFloat() * 0.08f
 
     drawCircle(
         brush = Brush.radialGradient(
@@ -182,13 +164,14 @@ private fun DrawScope.drawSiriLuminousAura(
     )
 
     // 5. Central Ethereal Luminescence Core (中央融合流光之核)
-    val coreRadius = baseOrbRadius * (0.65f + sin(pulse * 1.2f).toFloat() * 0.08f)
+    val coreRadius = baseOrbRadius * (0.65f + sin(t * 0.52).toFloat() * 0.08f)
+    val coreAlpha = 0.28f + cos(t * 0.40).toFloat() * 0.05f
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(
-                Color(0xFFFFFFFF).copy(alpha = 0.28f),
-                Color(0xFFE0F7FA).copy(alpha = 0.22f),
-                Color(0xFFC084FC).copy(alpha = 0.15f),
+                Color(0xFFFFFFFF).copy(alpha = coreAlpha),
+                Color(0xFFE0F7FA).copy(alpha = coreAlpha * 0.80f),
+                Color(0xFFC084FC).copy(alpha = coreAlpha * 0.50f),
                 Color.Transparent
             ),
             center = Offset(centerX, centerY),

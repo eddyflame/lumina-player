@@ -93,7 +93,7 @@ Lumina Player is engineered to support the widest possible spectrum of local aud
 * **Playback Mode & State Persistence**: Seamlessly restores play mode (repeat/shuffle), track index, and position on app restart with muted cold-start preroll.
 * **Autonomous Luminous Fluid Aura Visualizer**:
   * Employs authentic **Apple Siri / Apple Intelligence** glowing fluid orb dynamics with pure saturated neon jewel tones (Electric Cyan `#00E5FF`, Vivid Magenta `#FF2D55`, Royal Violet `#7000FF`, Luminous Amber `#FF9500`, and a central ethereal luminescence core).
-  * 3 continuous, asynchronous harmonic phase drift engines drive an organic figure-8 Lissajous convection entirely independent of raw audio transients, completely eliminating spasms, jitter, and erratic motion while providing a serene, hypnotic ambient aesthetic against a pure dark canvas.
+  * Driven by a frame-clock monotonic time integration engine (`withFrameNanos`) and continuous harmonic trigonometric functions, completely eliminating periodic restart resets, boundary discontinuities, and visual jerks/twitches.
   * Integrated as a dedicated 1st-class central stage view mode in `FullPlayerScreen` (`VINYL_DISC` ⇋ `LYRICS` ⇋ `VISUALIZER`).
 
 ### 4.3 Zero-Reflection Reactive Persistence & Playlist Management (`MusicDatabase`)

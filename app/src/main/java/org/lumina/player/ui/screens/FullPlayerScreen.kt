@@ -447,7 +447,6 @@ fun FullPlayerScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     AudioVisualizer(
-                                        spectrumData = visualizerSpectrum,
                                         isPlaying = isPlaying,
                                         modifier = Modifier.fillMaxSize()
                                     )
