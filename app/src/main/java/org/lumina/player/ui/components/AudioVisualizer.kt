@@ -1,7 +1,7 @@
 package org.lumina.player.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
@@ -19,6 +19,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import org.lumina.player.ui.theme.LuminaAccent
 import org.lumina.player.ui.theme.LuminaPrimary
 import kotlin.random.Random
@@ -34,25 +35,29 @@ fun AudioVisualizer(
     color: Color = MaterialTheme.colorScheme.primary
 ) {
     val animatables = remember(barCount) {
-        List(barCount) { Animatable(0.15f) }
+        List(barCount) { Animatable(0.12f) }
     }
 
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
             animatables.forEachIndexed { index, anim ->
-                val duration = 300 + (index % 5) * 80
-                val target = 0.35f + Random.nextFloat() * 0.65f
-                anim.animateTo(
-                    targetValue = target,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(durationMillis = duration, easing = LinearEasing),
-                        repeatMode = RepeatMode.Reverse
+                launch {
+                    val duration = 280 + (index % 7) * 65
+                    val target = 0.35f + Random.nextFloat() * 0.65f
+                    anim.animateTo(
+                        targetValue = target,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = duration, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        )
                     )
-                )
+                }
             }
         } else {
             animatables.forEach { anim ->
-                anim.animateTo(0.08f, tween(300))
+                launch {
+                    anim.animateTo(0.08f, tween(300))
+                }
             }
         }
     }

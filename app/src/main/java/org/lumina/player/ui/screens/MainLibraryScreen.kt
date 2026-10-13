@@ -104,6 +104,7 @@ fun MainLibraryScreen(
     onSongClick: (Song, List<Song>) -> Unit,
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
+    onSkipPrevious: () -> Unit,
     onOpenQueue: () -> Unit,
     onOpenMiniPlayer: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -250,6 +251,7 @@ fun MainLibraryScreen(
                 artwork = artwork,
                 onTogglePlayPause = onTogglePlayPause,
                 onSkipNext = onSkipNext,
+                onSkipPrevious = onSkipPrevious,
                 onOpenQueue = onOpenQueue,
                 onClick = onOpenMiniPlayer
             )

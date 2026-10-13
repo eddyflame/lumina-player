@@ -166,17 +166,26 @@ fun FullPlayerScreen(
         )
     )
 
-    Box(
+    Surface(
         modifier = modifier
             .fillMaxSize()
-            .background(ambientGradient)
-            .statusBarsPadding()
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null
+            ) { /* 消费所有点击，彻底阻断对底层主界面的误触 */ },
+        color = MaterialTheme.colorScheme.background
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .background(ambientGradient)
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+            ) {
             // 顶部导航栏
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -471,6 +480,7 @@ fun FullPlayerScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
+}
 
     // 各项对话框
     if (showAudioInfoDialog) {

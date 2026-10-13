@@ -204,6 +204,7 @@ fun LuminaPlayerApp(
                 },
                 onTogglePlayPause = { app.playerController.togglePlayPause() },
                 onSkipNext = { app.playerController.skipNext() },
+                onSkipPrevious = { app.playerController.skipPrevious() },
                 onOpenQueue = { isQueueOpen = true },
                 onOpenMiniPlayer = { isFullPlayerOpen = true },
                 onOpenSettings = { isSettingsOpen = true },
@@ -214,7 +215,8 @@ fun LuminaPlayerApp(
             AnimatedVisibility(
                 visible = isFullPlayerOpen && currentSong != null,
                 enter = slideInVertically { it },
-                exit = slideOutVertically { it }
+                exit = slideOutVertically { it },
+                modifier = Modifier.fillMaxSize()
             ) {
                 currentSong?.let { song ->
                     FullPlayerScreen(

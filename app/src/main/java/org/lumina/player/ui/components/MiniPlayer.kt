@@ -1,10 +1,16 @@
 package org.lumina.player.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,6 +30,7 @@ import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -30,23 +38,29 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import org.lumina.player.R
 import org.lumina.player.core.model.Song
 import org.lumina.player.ui.theme.HiResGold
 
 /**
- * 悬浮微型播放条 (Mini Player)
+ * 悬浮微型播放条 (Mini Player) - 支持左右滑动切歌与展开全屏
  */
 @Composable
 fun MiniPlayer(
@@ -57,6 +71,7 @@ fun MiniPlayer(
     artwork: android.graphics.Bitmap? = null,
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
+    onSkipPrevious: () -> Unit,
     onOpenQueue: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -70,6 +85,10 @@ fun MiniPlayer(
         if (currentSong == null) return@AnimatedVisibility
 
         val progress = if (durationMs > 0) (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+        val coroutineScope = rememberCoroutineScope()
+        val offsetX = remember { Animatable(0f) }
+        val density = LocalDensity.current
+        val swipeThresholdPx = with(density) { 50.dp.toPx() }
 
         Surface(
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
@@ -78,6 +97,29 @@ fun MiniPlayer(
             shadowElevation = 8.dp,
             modifier = Modifier
                 .fillMaxWidth()
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .draggable(
+                    state = rememberDraggableState { delta ->
+                        coroutineScope.launch {
+                            offsetX.snapTo((offsetX.value + delta).coerceIn(-120f, 120f))
+                        }
+                    },
+                    orientation = Orientation.Horizontal,
+                    onDragStarted = {
+                        coroutineScope.launch { offsetX.snapTo(0f) }
+                    },
+                    onDragStopped = {
+                        val current = offsetX.value
+                        coroutineScope.launch {
+                            if (current < -swipeThresholdPx) {
+                                onSkipNext()
+                            } else if (current > swipeThresholdPx) {
+                                onSkipPrevious()
+                            }
+                            offsetX.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                        }
+                    }
+                )
                 .clickable { onClick() }
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -161,7 +203,22 @@ fun MiniPlayer(
                     }
 
                     // 控制按钮组
-                    IconButton(onClick = onTogglePlayPause) {
+                    IconButton(
+                        onClick = onSkipPrevious,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SkipPrevious,
+                            contentDescription = stringResource(R.string.previous),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onTogglePlayPause,
+                        modifier = Modifier.size(36.dp)
+                    ) {
                         Icon(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = if (isPlaying) stringResource(R.string.pause) else stringResource(R.string.play),
@@ -170,19 +227,27 @@ fun MiniPlayer(
                         )
                     }
 
-                    IconButton(onClick = onSkipNext) {
+                    IconButton(
+                        onClick = onSkipNext,
+                        modifier = Modifier.size(36.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.SkipNext,
                             contentDescription = stringResource(R.string.next),
-                            tint = MaterialTheme.colorScheme.onSurface
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
 
-                    IconButton(onClick = onOpenQueue) {
+                    IconButton(
+                        onClick = onOpenQueue,
+                        modifier = Modifier.size(36.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.QueueMusic,
                             contentDescription = stringResource(R.string.queue),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
