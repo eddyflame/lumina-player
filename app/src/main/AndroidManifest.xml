@@ -76,6 +76,21 @@
             </intent-filter>
         </service>
 
+        <!-- Desktop Audio Playback Widget -->
+        <receiver
+            android:name=".ui.widget.LuminaPlayerWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="org.lumina.player.widget.ACTION_PLAY_PAUSE" />
+                <action android:name="org.lumina.player.widget.ACTION_PREV" />
+                <action android:name="org.lumina.player.widget.ACTION_NEXT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/player_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>
