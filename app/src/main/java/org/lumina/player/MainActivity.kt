@@ -117,17 +117,27 @@ fun LuminaPlayerApp(
     val queueSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val settingsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // 存储权限请求 Launcher
-    val requiredPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_AUDIO
-    } else {
-        Manifest.permission.READ_EXTERNAL_STORAGE
+    // 权限请求 Launcher (音频访问与前台/锁屏/灵动岛播放通知)
+    val permissionsToRequest = remember {
+        buildList {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.READ_MEDIA_AUDIO)
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+        }.toTypedArray()
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val audioGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            grants[Manifest.permission.READ_MEDIA_AUDIO] == true
+        } else {
+            grants[Manifest.permission.READ_EXTERNAL_STORAGE] == true
+        }
+        if (audioGranted) {
             coroutineScope.launch {
                 app.repository.rescan(audioSettings.filterShortAudio)
             }
@@ -136,15 +146,14 @@ fun LuminaPlayerApp(
 
     // 启动初始扫描与权限检查
     LaunchedEffect(Unit) {
-        val hasPermission = ContextCompat.checkSelfPermission(
-            activity,
-            requiredPermission
-        ) == PackageManager.PERMISSION_GRANTED
+        val missingPermissions = permissionsToRequest.filter {
+            ContextCompat.checkSelfPermission(activity, it) != PackageManager.PERMISSION_GRANTED
+        }
 
-        if (hasPermission) {
+        if (missingPermissions.isEmpty()) {
             app.repository.rescan(audioSettings.filterShortAudio)
         } else {
-            permissionLauncher.launch(requiredPermission)
+            permissionLauncher.launch(missingPermissions.toTypedArray())
         }
 
         // 处理外部通过 VIEW intent 打开的音频

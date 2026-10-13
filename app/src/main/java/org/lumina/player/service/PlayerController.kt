@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.lumina.player.core.lyrics.LyricLine
 import org.lumina.player.core.lyrics.LrcParser
 import org.lumina.player.core.model.AudioTechnicalInfo
@@ -158,8 +159,18 @@ class PlayerController(
         // 加载封面、歌词与技术参数
         scope.launch(Dispatchers.IO) {
             val art = AudioTagReader.extractArtwork(context, song.uri, song.filePath)
-            _currentArtwork.value = art
-            notifyWidgetUpdate()
+            val artBytes = art?.let { bitmap ->
+                val stream = java.io.ByteArrayOutputStream()
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, stream)
+                stream.toByteArray()
+            }
+            withContext(Dispatchers.Main) {
+                _currentArtwork.value = art
+                notifyWidgetUpdate()
+                if (artBytes != null) {
+                    service?.updateArtwork(artBytes)
+                }
+            }
 
             val meta = AudioTagReader.extractMetadata(context, song.uri, song.filePath)
             _currentTechInfo.value = meta.technicalInfo

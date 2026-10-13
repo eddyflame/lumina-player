@@ -1,8 +1,14 @@
 package org.lumina.player.service
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.os.Binder
+import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -10,9 +16,16 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.CommandButton
+import androidx.media3.session.DefaultMediaNotificationProvider
+import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionResult
+import com.google.common.collect.ImmutableList
+import org.lumina.player.LuminaApp
 import org.lumina.player.MainActivity
+import org.lumina.player.R
 import org.lumina.player.core.dsp.AudioDspController
 import org.lumina.player.core.model.Song
 
@@ -57,18 +70,31 @@ class LuminaAudioService : MediaSessionService() {
         })
 
         // 创建前台服务通知渠道 (Android 8.0+)
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            val notificationManager = getSystemService(android.app.NotificationManager::class.java)
-            val channel = android.app.NotificationChannel(
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            val channel = NotificationChannel(
                 CHANNEL_ID,
-                getString(org.lumina.player.R.string.app_name),
-                android.app.NotificationManager.IMPORTANCE_LOW
+                getString(R.string.app_name),
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Lumina Player playback controls"
                 setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                enableVibration(false)
+                enableLights(false)
+                setSound(null, null)
             }
             notificationManager?.createNotificationChannel(channel)
         }
+
+        // 配置默认 MediaNotificationProvider 并包装适配小米 HyperOS 灵动岛 / 锁屏通知
+        val defaultNotificationProvider = DefaultMediaNotificationProvider.Builder(this)
+            .setChannelId(CHANNEL_ID)
+            .setChannelName(R.string.app_name)
+            .setNotificationId(NOTIFICATION_ID)
+            .build()
+
+        setMediaNotificationProvider(LuminaMediaNotificationProvider(this, defaultNotificationProvider))
 
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -82,7 +108,93 @@ class LuminaAudioService : MediaSessionService() {
 
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(sessionActivityPendingIntent)
+            .setCallback(MediaSessionCallback())
             .build()
+    }
+
+    private class LuminaMediaNotificationProvider(
+        private val context: Context,
+        private val defaultProvider: DefaultMediaNotificationProvider
+    ) : MediaNotification.Provider {
+
+        override fun createNotification(
+            mediaSession: MediaSession,
+            customLayout: ImmutableList<CommandButton>,
+            actionFactory: MediaNotification.ActionFactory,
+            onNotificationChangedCallback: MediaNotification.Provider.Callback
+        ): MediaNotification {
+            val mediaNotification = defaultProvider.createNotification(
+                mediaSession,
+                customLayout,
+                actionFactory,
+                onNotificationChangedCallback
+            )
+
+            val notification = mediaNotification.notification
+            // 确保锁屏完全可见 (Public visibility on lockscreen)
+            notification.visibility = Notification.VISIBILITY_PUBLIC
+
+            // 适配小米 HyperOS 灵动岛 / 超级岛 / 焦点通知 (HyperIsland / Focus Notification)
+            val extras = notification.extras ?: Bundle()
+            extras.putBoolean("miui.focus.enable", true)
+            extras.putBoolean("miui.focus.media", true)
+            extras.putInt("miui.focus.type", 1) // 持续媒体播放服务
+            val title = mediaSession.player.mediaMetadata.title?.toString() ?: ""
+            val artist = mediaSession.player.mediaMetadata.artist?.toString() ?: ""
+            extras.putString("miui.focus.title", title)
+            extras.putString("miui.focus.subtitle", artist)
+            notification.extras = extras
+
+            return MediaNotification(mediaNotification.notificationId, notification)
+        }
+
+        override fun handleCustomCommand(
+            mediaSession: MediaSession,
+            action: String,
+            extras: Bundle
+        ): Boolean {
+            return defaultProvider.handleCustomCommand(mediaSession, action, extras)
+        }
+    }
+
+    private inner class MediaSessionCallback : MediaSession.Callback {
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo
+        ): MediaSession.ConnectionResult {
+            val connectionResult = super.onConnect(session, controller)
+            val availableSessionCommands = connectionResult.availableSessionCommands
+            val availablePlayerCommands = connectionResult.availablePlayerCommands.buildUpon()
+                .add(Player.COMMAND_PLAY_PAUSE)
+                .add(Player.COMMAND_SEEK_TO_NEXT)
+                .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+                .build()
+            return MediaSession.ConnectionResult.accept(availableSessionCommands, availablePlayerCommands)
+        }
+
+        @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+        override fun onPlayerCommandRequest(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            playerCommand: Int
+        ): Int {
+            when (playerCommand) {
+                Player.COMMAND_SEEK_TO_NEXT,
+                Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
+                    LuminaApp.instance.playerController.skipNext()
+                    return SessionResult.RESULT_SUCCESS
+                }
+                Player.COMMAND_SEEK_TO_PREVIOUS,
+                Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
+                    LuminaApp.instance.playerController.skipPrevious()
+                    return SessionResult.RESULT_SUCCESS
+                }
+            }
+            return super.onPlayerCommandRequest(session, controller, playerCommand)
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -98,12 +210,17 @@ class LuminaAudioService : MediaSessionService() {
         }
     }
 
-    fun prepareSong(song: Song, playWhenReady: Boolean = true) {
-        val metadata = MediaMetadata.Builder()
+    fun prepareSong(song: Song, artworkBytes: ByteArray? = null, playWhenReady: Boolean = true) {
+        val metadataBuilder = MediaMetadata.Builder()
             .setTitle(song.title)
             .setArtist(song.displayArtist)
             .setAlbumTitle(song.displayAlbum)
-            .build()
+
+        if (artworkBytes != null && artworkBytes.isNotEmpty()) {
+            metadataBuilder.setArtworkData(artworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+        }
+
+        val metadata = metadataBuilder.build()
 
         // 对于 CUE 分轨，底层播放器必须加载真实的物理音频文件路径，而非带 #cue 标记的虚拟 URI
         val playableUri = if (song.isVirtualCueTrack && song.filePath.isNotBlank()) {
@@ -133,8 +250,20 @@ class LuminaAudioService : MediaSessionService() {
         player.playWhenReady = playWhenReady
     }
 
+    fun updateArtwork(artworkBytes: ByteArray?) {
+        val currentItem = player.currentMediaItem ?: return
+        val newMetadata = currentItem.mediaMetadata.buildUpon()
+            .setArtworkData(artworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+            .build()
+        val newItem = currentItem.buildUpon()
+            .setMediaMetadata(newMetadata)
+            .build()
+        player.replaceMediaItem(player.currentMediaItemIndex, newItem)
+    }
+
     companion object {
         const val CHANNEL_ID = "lumina_player_playback_channel"
+        const val NOTIFICATION_ID = 1001
     }
 
     override fun onDestroy() {
