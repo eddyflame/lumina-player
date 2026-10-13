@@ -266,6 +266,22 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
     }
 
     /**
+     * Renames an existing custom playlist.
+     */
+    fun renamePlaylist(playlistId: Long, newName: String) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                val db = writableDatabase
+                val cv = ContentValues().apply {
+                    put(COL_PL_NAME, newName)
+                }
+                db.update(TABLE_PLAYLISTS, cv, "$COL_PL_ID = ?", arrayOf(playlistId.toString()))
+            }
+            refreshPlaylists()
+        }
+    }
+
+    /**
      * Deletes a custom playlist and its associated playlist item records.
      */
     fun deletePlaylist(playlistId: Long) {
@@ -283,28 +299,44 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
      * Adds a song to a playlist.
      */
     fun addSongToPlaylist(playlistId: Long, songUri: String) {
+        addSongsToPlaylist(playlistId, listOf(songUri))
+    }
+
+    /**
+     * Adds multiple songs to a playlist in a single atomic transaction.
+     */
+    fun addSongsToPlaylist(playlistId: Long, songUris: List<String>) {
+        if (songUris.isEmpty()) return
         scope.launch {
             withContext(Dispatchers.IO) {
                 val db = writableDatabase
-                val existsCursor = db.rawQuery(
-                    "SELECT COUNT(*) FROM $TABLE_PLAYLIST_ITEMS WHERE $COL_PI_PLAYLIST_ID = ? AND $COL_PI_SONG_URI = ?",
-                    arrayOf(playlistId.toString(), songUri)
-                )
-                val exists = existsCursor.use { if (it.moveToFirst()) it.getInt(0) > 0 else false }
-                if (exists) return@withContext
+                db.beginTransaction()
+                try {
+                    val countCursor = db.rawQuery(
+                        "SELECT COUNT(*) FROM $TABLE_PLAYLIST_ITEMS WHERE $COL_PI_PLAYLIST_ID = ?",
+                        arrayOf(playlistId.toString())
+                    )
+                    var currentPosition = countCursor.use { if (it.moveToFirst()) it.getInt(0) else 0 }
 
-                val countCursor = db.rawQuery(
-                    "SELECT COUNT(*) FROM $TABLE_PLAYLIST_ITEMS WHERE $COL_PI_PLAYLIST_ID = ?",
-                    arrayOf(playlistId.toString())
-                )
-                val count = countCursor.use { if (it.moveToFirst()) it.getInt(0) else 0 }
-
-                val cv = ContentValues().apply {
-                    put(COL_PI_PLAYLIST_ID, playlistId)
-                    put(COL_PI_SONG_URI, songUri)
-                    put(COL_PI_POSITION, count)
+                    for (songUri in songUris) {
+                        val existsCursor = db.rawQuery(
+                            "SELECT COUNT(*) FROM $TABLE_PLAYLIST_ITEMS WHERE $COL_PI_PLAYLIST_ID = ? AND $COL_PI_SONG_URI = ?",
+                            arrayOf(playlistId.toString(), songUri)
+                        )
+                        val exists = existsCursor.use { if (it.moveToFirst()) it.getInt(0) > 0 else false }
+                        if (!exists) {
+                            val cv = ContentValues().apply {
+                                put(COL_PI_PLAYLIST_ID, playlistId)
+                                put(COL_PI_SONG_URI, songUri)
+                                put(COL_PI_POSITION, currentPosition++)
+                            }
+                            db.insert(TABLE_PLAYLIST_ITEMS, null, cv)
+                        }
+                    }
+                    db.setTransactionSuccessful()
+                } finally {
+                    db.endTransaction()
                 }
-                db.insert(TABLE_PLAYLIST_ITEMS, null, cv)
             }
             refreshPlaylists()
         }
@@ -314,14 +346,30 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
      * Removes a song from a playlist.
      */
     fun removeSongFromPlaylist(playlistId: Long, songUri: String) {
+        removeSongsFromPlaylist(playlistId, listOf(songUri))
+    }
+
+    /**
+     * Removes multiple songs from a playlist in a single atomic transaction.
+     */
+    fun removeSongsFromPlaylist(playlistId: Long, songUris: List<String>) {
+        if (songUris.isEmpty()) return
         scope.launch {
             withContext(Dispatchers.IO) {
                 val db = writableDatabase
-                db.delete(
-                    TABLE_PLAYLIST_ITEMS,
-                    "$COL_PI_PLAYLIST_ID = ? AND $COL_PI_SONG_URI = ?",
-                    arrayOf(playlistId.toString(), songUri)
-                )
+                db.beginTransaction()
+                try {
+                    for (songUri in songUris) {
+                        db.delete(
+                            TABLE_PLAYLIST_ITEMS,
+                            "$COL_PI_PLAYLIST_ID = ? AND $COL_PI_SONG_URI = ?",
+                            arrayOf(playlistId.toString(), songUri)
+                        )
+                    }
+                    db.setTransactionSuccessful()
+                } finally {
+                    db.endTransaction()
+                }
             }
             refreshPlaylists()
         }

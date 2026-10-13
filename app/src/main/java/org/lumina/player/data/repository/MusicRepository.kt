@@ -93,8 +93,11 @@ class MusicRepository(
         database.updateSongTags(uri, title, artist, album, year, genre)
 
     fun createPlaylist(name: String) = database.createPlaylist(name)
+    fun renamePlaylist(id: Long, newName: String) = database.renamePlaylist(id, newName)
     fun deletePlaylist(id: Long) = database.deletePlaylist(id)
     fun addSongToPlaylist(playlistId: Long, songUri: String) = database.addSongToPlaylist(playlistId, songUri)
+    fun addSongsToPlaylist(playlistId: Long, songUris: List<String>) = database.addSongsToPlaylist(playlistId, songUris)
     fun removeSongFromPlaylist(playlistId: Long, songUri: String) = database.removeSongFromPlaylist(playlistId, songUri)
+    fun removeSongsFromPlaylist(playlistId: Long, songUris: List<String>) = database.removeSongsFromPlaylist(playlistId, songUris)
     suspend fun getPlaylistSongs(playlistId: Long) = database.getPlaylistSongs(playlistId)
 }

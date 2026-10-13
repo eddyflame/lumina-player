@@ -228,6 +228,7 @@ fun LuminaPlayerApp(
                     }
                 },
                 onCreatePlaylist = { name -> app.repository.createPlaylist(name) },
+                onRenamePlaylist = { id, newName -> app.repository.renamePlaylist(id, newName) },
                 onPlaylistClick = { playlist ->
                     coroutineScope.launch {
                         val pSongs = app.repository.getPlaylistSongs(playlist.id)
@@ -241,7 +242,9 @@ fun LuminaPlayerApp(
                 },
                 onGetPlaylistSongs = { id -> app.repository.getPlaylistSongs(id) },
                 onAddSongToPlaylist = { id, uri -> app.repository.addSongToPlaylist(id, uri) },
+                onAddSongsToPlaylist = { id, uris -> app.repository.addSongsToPlaylist(id, uris) },
                 onRemoveSongFromPlaylist = { id, uri -> app.repository.removeSongFromPlaylist(id, uri) },
+                onRemoveSongsFromPlaylist = { id, uris -> app.repository.removeSongsFromPlaylist(id, uris) },
                 onToggleFavorite = { uri -> app.playerController.toggleFavorite(uri) }
             )
 

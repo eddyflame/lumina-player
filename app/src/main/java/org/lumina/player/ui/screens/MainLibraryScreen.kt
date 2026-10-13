@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Folder
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -130,11 +132,14 @@ fun MainLibraryScreen(
     onOpenEqualizer: () -> Unit,
     onShuffleAll: (List<Song>) -> Unit,
     onCreatePlaylist: (String) -> Unit,
+    onRenamePlaylist: (Long, String) -> Unit = { _, _ -> },
     onPlaylistClick: (Playlist) -> Unit = {},
     onDeletePlaylist: (Playlist) -> Unit = {},
     onGetPlaylistSongs: suspend (Long) -> List<Song> = { emptyList() },
     onAddSongToPlaylist: (Long, String) -> Unit = { _, _ -> },
+    onAddSongsToPlaylist: (Long, List<String>) -> Unit = { _, _ -> },
     onRemoveSongFromPlaylist: (Long, String) -> Unit = { _, _ -> },
+    onRemoveSongsFromPlaylist: (Long, List<String>) -> Unit = { _, _ -> },
     onToggleFavorite: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -345,12 +350,37 @@ fun MainLibraryScreen(
                             activeDetailState = detail.copy(songs = refreshed)
                         }
                     },
+                    onAddSongsToPlaylist = { plId, sUris ->
+                        onAddSongsToPlaylist(plId, sUris)
+                        coroutineScope.launch {
+                            val refreshed = onGetPlaylistSongs(plId)
+                            activeDetailState = detail.copy(songs = refreshed)
+                        }
+                    },
                     onRemoveSongFromPlaylist = { plId, sUri ->
                         onRemoveSongFromPlaylist(plId, sUri)
                         coroutineScope.launch {
                             val refreshed = onGetPlaylistSongs(plId)
                             activeDetailState = detail.copy(songs = refreshed)
                         }
+                    },
+                    onRemoveSongsFromPlaylist = { plId, sUris ->
+                        onRemoveSongsFromPlaylist(plId, sUris)
+                        coroutineScope.launch {
+                            val refreshed = onGetPlaylistSongs(plId)
+                            activeDetailState = detail.copy(songs = refreshed)
+                        }
+                    },
+                    onRenamePlaylist = { plId, newName ->
+                        onRenamePlaylist(plId, newName)
+                        activeDetailState = detail.copy(title = newName)
+                    },
+                    onDeletePlaylist = { plId ->
+                        val toDel = playlists.find { it.id == plId }
+                        if (toDel != null) {
+                            onDeletePlaylist(toDel)
+                        }
+                        activeDetailState = null
                     }
                 )
             } else {
@@ -444,6 +474,9 @@ fun MainLibraryScreen(
                             }
                         },
                         onPlaylistPlayClick = onPlaylistClick,
+                        onRenamePlaylist = { playlist, newName ->
+                            onRenamePlaylist(playlist.id, newName)
+                        },
                         onDeletePlaylist = onDeletePlaylist
                     )
                 }
@@ -854,8 +887,13 @@ private fun PlaylistsTab(
     onCreatePlaylistClick: () -> Unit,
     onPlaylistClick: (Playlist) -> Unit = {},
     onPlaylistPlayClick: (Playlist) -> Unit = {},
+    onRenamePlaylist: (Playlist, String) -> Unit = { _, _ -> },
     onDeletePlaylist: (Playlist) -> Unit = {}
 ) {
+    var playlistToRename by remember { mutableStateOf<Playlist?>(null) }
+    var renameText by remember { mutableStateOf("") }
+    var playlistToDelete by remember { mutableStateOf<Playlist?>(null) }
+
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         // Smart playlist quick access section
         item {
@@ -913,6 +951,8 @@ private fun PlaylistsTab(
         }
 
         items(playlists, key = { it.id }) { playlist ->
+            var showItemMenu by remember { mutableStateOf(false) }
+
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -952,17 +992,107 @@ private fun PlaylistsTab(
                             modifier = Modifier.size(22.dp)
                         )
                     }
-                    IconButton(onClick = { onDeletePlaylist(playlist) }) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            modifier = Modifier.size(20.dp)
-                        )
+                    Box {
+                        IconButton(onClick = { showItemMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showItemMenu,
+                            onDismissRequest = { showItemMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.play)) },
+                                leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
+                                onClick = {
+                                    showItemMenu = false
+                                    onPlaylistPlayClick(playlist)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.rename_playlist)) },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                onClick = {
+                                    showItemMenu = false
+                                    renameText = playlist.name
+                                    playlistToRename = playlist
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.delete_playlist), color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                onClick = {
+                                    showItemMenu = false
+                                    playlistToDelete = playlist
+                                }
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+
+    if (playlistToRename != null) {
+        val target = playlistToRename!!
+        AlertDialog(
+            onDismissRequest = { playlistToRename = null },
+            title = { Text(stringResource(R.string.rename_playlist)) },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (renameText.isNotBlank()) {
+                            onRenamePlaylist(target, renameText.trim())
+                            playlistToRename = null
+                        }
+                    }
+                ) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { playlistToRename = null }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    if (playlistToDelete != null) {
+        val target = playlistToDelete!!
+        AlertDialog(
+            onDismissRequest = { playlistToDelete = null },
+            title = { Text(stringResource(R.string.delete_playlist)) },
+            text = { Text(stringResource(R.string.confirm_delete_playlist, target.name)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeletePlaylist(target)
+                        playlistToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.onError)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { playlistToDelete = null }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 }
 
