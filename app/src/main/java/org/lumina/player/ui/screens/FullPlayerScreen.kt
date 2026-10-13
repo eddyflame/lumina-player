@@ -98,7 +98,6 @@ import org.lumina.player.ui.components.EqualizerDialog
 import org.lumina.player.ui.components.LyricsView
 import org.lumina.player.ui.components.SleepTimerDialog
 import org.lumina.player.ui.components.TagEditorDialog
-import org.lumina.player.ui.components.VisualizerStyle
 import org.lumina.player.ui.theme.HiResGold
 import org.lumina.player.ui.theme.LuminaAccent
 import org.lumina.player.ui.theme.LuminaPrimary
@@ -146,7 +145,6 @@ fun FullPlayerScreen(
     modifier: Modifier = Modifier
 ) {
     var viewMode by remember { mutableStateOf(PlayerArtViewMode.VINYL_DISC) }
-    var visualizerStyle by remember { mutableStateOf(VisualizerStyle.AURORA_WAVES) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var showAudioInfoDialog by remember { mutableStateOf(false) }
     var showEqualizerDialog by remember { mutableStateOf(false) }
@@ -451,14 +449,6 @@ fun FullPlayerScreen(
                                     AudioVisualizer(
                                         spectrumData = visualizerSpectrum,
                                         isPlaying = isPlaying,
-                                        style = visualizerStyle,
-                                        primaryColor = dominantColor.takeIf { it != LuminaPrimary } ?: MaterialTheme.colorScheme.primary,
-                                        accentColor = LuminaAccent,
-                                        onCycleStyle = {
-                                            val styles = VisualizerStyle.entries
-                                            val nextIdx = (visualizerStyle.ordinal + 1) % styles.size
-                                            visualizerStyle = styles[nextIdx]
-                                        },
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
