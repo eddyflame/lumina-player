@@ -212,6 +212,32 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
     }
 
     /**
+     * Sets favorite status for multiple song URIs in a single atomic SQLite transaction.
+     */
+    fun setFavorites(uris: List<String>, isFavorite: Boolean) {
+        if (uris.isEmpty()) return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                val db = writableDatabase
+                val favValue = if (isFavorite) 1 else 0
+                db.beginTransaction()
+                try {
+                    for (uri in uris) {
+                        db.execSQL(
+                            "UPDATE $TABLE_SONGS SET $COL_FAVORITE = ? WHERE $COL_URI = ?",
+                            arrayOf<Any>(favValue, uri)
+                        )
+                    }
+                    db.setTransactionSuccessful()
+                } finally {
+                    db.endTransaction()
+                }
+            }
+            refreshAll()
+        }
+    }
+
+    /**
      * Increments play count and updates last played timestamp.
      */
     fun recordPlay(uri: String) {

@@ -197,6 +197,22 @@ class PlayerController(
         }
     }
 
+    fun setFavorites(uris: List<String>, isFavorite: Boolean) {
+        if (uris.isEmpty()) return
+        repository.setFavorites(uris, isFavorite)
+        val uriSet = uris.toSet()
+        val cur = _currentSong.value
+        if (cur != null && uriSet.contains(cur.uri)) {
+            _currentSong.value = cur.copy(isFavorite = isFavorite)
+        }
+        val currentQueue = _queue.value
+        if (currentQueue.any { uriSet.contains(it.uri) }) {
+            _queue.value = currentQueue.map {
+                if (uriSet.contains(it.uri)) it.copy(isFavorite = isFavorite) else it
+            }
+        }
+    }
+
     private fun bindAudioService() {
         val intent = Intent(context, LuminaAudioService::class.java)
         runCatching {

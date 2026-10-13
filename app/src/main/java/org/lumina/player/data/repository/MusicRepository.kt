@@ -88,6 +88,7 @@ class MusicRepository(
     }
 
     fun toggleFavorite(uri: String) = database.toggleFavorite(uri)
+    fun setFavorites(uris: List<String>, isFavorite: Boolean) = database.setFavorites(uris, isFavorite)
     fun recordPlay(uri: String) = database.recordPlay(uri)
     fun updateSongTags(uri: String, title: String, artist: String, album: String, year: Int, genre: String) =
         database.updateSongTags(uri, title, artist, album, year, genre)

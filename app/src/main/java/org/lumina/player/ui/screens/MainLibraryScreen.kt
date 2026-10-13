@@ -101,6 +101,7 @@ data class DetailViewState(
     val title: String,
     val subtitle: String? = null,
     val isCustomPlaylist: Boolean = false,
+    val isFavorites: Boolean = false,
     val customPlaylistId: Long? = null,
     val songs: List<Song> = emptyList()
 )
@@ -141,6 +142,7 @@ fun MainLibraryScreen(
     onRemoveSongFromPlaylist: (Long, String) -> Unit = { _, _ -> },
     onRemoveSongsFromPlaylist: (Long, List<String>) -> Unit = { _, _ -> },
     onToggleFavorite: (String) -> Unit = {},
+    onSetFavorites: (List<String>, Boolean) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -180,6 +182,10 @@ fun MainLibraryScreen(
         stringResource(R.string.tab_folders),
         stringResource(R.string.tab_playlists)
     )
+
+    val favoritesTitle = stringResource(R.string.favorites)
+    val recentTitle = stringResource(R.string.recent_played)
+    val mostPlayedTitle = stringResource(R.string.most_played)
 
     // Intercept back button when detail view is active
     BackHandler(enabled = activeDetailState != null) {
@@ -314,10 +320,12 @@ fun MainLibraryScreen(
         ) {
             if (activeDetailState != null) {
                 val detail = activeDetailState!!
+                val favTitle = stringResource(R.string.favorites)
+                val isFav = detail.isFavorites || detail.title == favTitle
                 // Recompute songs for smart playlists reactively
                 val detailSongs = when {
                     detail.isCustomPlaylist -> detail.songs
-                    detail.title == stringResource(R.string.favorites) -> favorites
+                    isFav -> favorites
                     detail.title == stringResource(R.string.recent_played) -> recentlyPlayed
                     detail.title == stringResource(R.string.most_played) -> mostPlayed
                     else -> detail.songs
@@ -329,6 +337,7 @@ fun MainLibraryScreen(
                     songs = detailSongs,
                     currentSong = currentSong,
                     isCustomPlaylist = detail.isCustomPlaylist,
+                    isFavorites = isFav,
                     customPlaylistId = detail.customPlaylistId,
                     availableLibrarySongs = songs,
                     onBack = { activeDetailState = null },
@@ -370,6 +379,15 @@ fun MainLibraryScreen(
                             val refreshed = onGetPlaylistSongs(plId)
                             activeDetailState = detail.copy(songs = refreshed)
                         }
+                    },
+                    onAddSongsToFavorites = { sUris ->
+                        onSetFavorites(sUris, true)
+                    },
+                    onRemoveSongFromFavorites = { sUri ->
+                        onToggleFavorite(sUri)
+                    },
+                    onRemoveSongsFromFavorites = { sUris ->
+                        onSetFavorites(sUris, false)
                     },
                     onRenamePlaylist = { plId, newName ->
                         onRenamePlaylist(plId, newName)
@@ -436,19 +454,20 @@ fun MainLibraryScreen(
                         mostPlayedCount = mostPlayed.size,
                         onOpenFavorites = {
                             activeDetailState = DetailViewState(
-                                title = "我喜欢的音乐",
+                                title = favoritesTitle,
+                                isFavorites = true,
                                 songs = favorites
                             )
                         },
                         onOpenRecent = {
                             activeDetailState = DetailViewState(
-                                title = "最近播放",
+                                title = recentTitle,
                                 songs = recentlyPlayed
                             )
                         },
                         onOpenMostPlayed = {
                             activeDetailState = DetailViewState(
-                                title = "最常播放",
+                                title = mostPlayedTitle,
                                 songs = mostPlayed
                             )
                         },

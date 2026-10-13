@@ -86,6 +86,7 @@ fun PlaylistDetailView(
     songs: List<Song>,
     currentSong: Song?,
     isCustomPlaylist: Boolean = false,
+    isFavorites: Boolean = false,
     customPlaylistId: Long? = null,
     availableLibrarySongs: List<Song> = emptyList(),
     onBack: () -> Unit,
@@ -96,10 +97,18 @@ fun PlaylistDetailView(
     onAddSongsToPlaylist: (Long, List<String>) -> Unit = { _, _ -> },
     onRemoveSongFromPlaylist: (Long, String) -> Unit = { _, _ -> },
     onRemoveSongsFromPlaylist: (Long, List<String>) -> Unit = { _, _ -> },
+    onAddSongsToFavorites: (List<String>) -> Unit = {},
+    onRemoveSongFromFavorites: (String) -> Unit = {},
+    onRemoveSongsFromFavorites: (List<String>) -> Unit = {},
     onRenamePlaylist: (Long, String) -> Unit = { _, _ -> },
     onDeletePlaylist: (Long) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val canAddSongs = (isCustomPlaylist && customPlaylistId != null) || isFavorites
+    val canRemoveSongs = (isCustomPlaylist && customPlaylistId != null) || isFavorites
+    val canBatchManage = canRemoveSongs
+    val canRenameOrDelete = isCustomPlaylist && customPlaylistId != null
+
     var showAddSongsSheet by remember { mutableStateOf(false) }
     var isBatchMode by remember { mutableStateOf(false) }
     var selectedUris by remember { mutableStateOf(setOf<String>()) }
@@ -199,7 +208,7 @@ fun PlaylistDetailView(
                             .weight(1f)
                             .padding(horizontal = 8.dp)
                     )
-                    if (isCustomPlaylist && customPlaylistId != null) {
+                    if (canAddSongs) {
                         IconButton(onClick = { showAddSongsSheet = true }) {
                             Icon(
                                 imageVector = Icons.Default.Add,
@@ -207,6 +216,8 @@ fun PlaylistDetailView(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
+                    }
+                    if (canBatchManage) {
                         IconButton(onClick = {
                             isBatchMode = true
                             selectedUris = emptySet()
@@ -216,6 +227,8 @@ fun PlaylistDetailView(
                                 contentDescription = stringResource(R.string.batch_edit)
                             )
                         }
+                    }
+                    if (canBatchManage || canRenameOrDelete) {
                         Box {
                             IconButton(onClick = { showHeaderMenu = true }) {
                                 Icon(
@@ -227,52 +240,60 @@ fun PlaylistDetailView(
                                 expanded = showHeaderMenu,
                                 onDismissRequest = { showHeaderMenu = false }
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.rename_playlist)) },
-                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                    onClick = {
-                                        showHeaderMenu = false
-                                        newPlaylistName = currentDisplayTitle
-                                        showRenameDialog = true
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.add_songs)) },
-                                    leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
-                                    onClick = {
-                                        showHeaderMenu = false
-                                        showAddSongsSheet = true
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.batch_edit)) },
-                                    leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) },
-                                    onClick = {
-                                        showHeaderMenu = false
-                                        isBatchMode = true
-                                        selectedUris = emptySet()
-                                    }
-                                )
-                                HorizontalDivider()
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            stringResource(R.string.delete_playlist),
-                                            color = MaterialTheme.colorScheme.error
-                                        )
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Default.DeleteOutline,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.error
-                                        )
-                                    },
-                                    onClick = {
-                                        showHeaderMenu = false
-                                        showDeleteConfirmDialog = true
-                                    }
-                                )
+                                if (canRenameOrDelete) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.rename_playlist)) },
+                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                        onClick = {
+                                            showHeaderMenu = false
+                                            newPlaylistName = currentDisplayTitle
+                                            showRenameDialog = true
+                                        }
+                                    )
+                                }
+                                if (canAddSongs) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.add_songs)) },
+                                        leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+                                        onClick = {
+                                            showHeaderMenu = false
+                                            showAddSongsSheet = true
+                                        }
+                                    )
+                                }
+                                if (canBatchManage) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.batch_edit)) },
+                                        leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) },
+                                        onClick = {
+                                            showHeaderMenu = false
+                                            isBatchMode = true
+                                            selectedUris = emptySet()
+                                        }
+                                    )
+                                }
+                                if (canRenameOrDelete) {
+                                    HorizontalDivider()
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                stringResource(R.string.delete_playlist),
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.DeleteOutline,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        },
+                                        onClick = {
+                                            showHeaderMenu = false
+                                            showDeleteConfirmDialog = true
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -333,7 +354,7 @@ fun PlaylistDetailView(
                                                 overflow = TextOverflow.Ellipsis,
                                                 modifier = Modifier.weight(1f, fill = false)
                                             )
-                                            if (isCustomPlaylist && customPlaylistId != null) {
+                                            if (canRenameOrDelete) {
                                                 IconButton(
                                                     onClick = {
                                                         newPlaylistName = currentDisplayTitle
@@ -396,7 +417,7 @@ fun PlaylistDetailView(
                                         Text(stringResource(R.string.shuffle), fontSize = 13.sp)
                                     }
 
-                                    if (isCustomPlaylist && customPlaylistId != null) {
+                                    if (canAddSongs) {
                                         OutlinedButton(
                                             onClick = { showAddSongsSheet = true },
                                             modifier = Modifier.weight(1f),
@@ -442,7 +463,7 @@ fun PlaylistDetailView(
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            if (isCustomPlaylist && customPlaylistId != null) {
+                            if (canAddSongs) {
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Button(
                                     onClick = { showAddSongsSheet = true },
@@ -571,10 +592,16 @@ fun PlaylistDetailView(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
 
-                                // If custom playlist and not in batch mode, provide quick delete button
-                                if (isCustomPlaylist && customPlaylistId != null && !isBatchMode) {
+                                // If removable playlist and not in batch mode, provide quick delete button
+                                if (canRemoveSongs && !isBatchMode) {
                                     IconButton(
-                                        onClick = { onRemoveSongFromPlaylist(customPlaylistId, song.uri) },
+                                        onClick = {
+                                            if (isCustomPlaylist && customPlaylistId != null) {
+                                                onRemoveSongFromPlaylist(customPlaylistId, song.uri)
+                                            } else if (isFavorites) {
+                                                onRemoveSongFromFavorites(song.uri)
+                                            }
+                                        },
                                         modifier = Modifier.size(36.dp)
                                     ) {
                                         Icon(
@@ -653,14 +680,26 @@ fun PlaylistDetailView(
         }
     }
 
-    // Modal Sheet for adding songs from library into this custom playlist
-    if (showAddSongsSheet && customPlaylistId != null) {
+    // Modal Sheet for adding songs from library into this playlist
+    if (showAddSongsSheet && canAddSongs) {
         val existingUris = remember(songs) { songs.map { it.uri }.toSet() }
         AddSongsToPlaylistSheet(
             librarySongs = availableLibrarySongs,
             existingSongUris = existingUris,
-            onAddSingleSong = { song -> onAddSongToPlaylist(customPlaylistId, song.uri) },
-            onAddMultipleSongs = { uris -> onAddSongsToPlaylist(customPlaylistId, uris) },
+            onAddSingleSong = { song ->
+                if (isCustomPlaylist && customPlaylistId != null) {
+                    onAddSongToPlaylist(customPlaylistId, song.uri)
+                } else if (isFavorites) {
+                    onAddSongsToFavorites(listOf(song.uri))
+                }
+            },
+            onAddMultipleSongs = { uris ->
+                if (isCustomPlaylist && customPlaylistId != null) {
+                    onAddSongsToPlaylist(customPlaylistId, uris)
+                } else if (isFavorites) {
+                    onAddSongsToFavorites(uris)
+                }
+            },
             onDismiss = { showAddSongsSheet = false }
         )
     }
@@ -747,7 +786,7 @@ fun PlaylistDetailView(
     }
 
     // Batch Remove Confirmation Dialog
-    if (showRemoveBatchConfirmDialog && customPlaylistId != null) {
+    if (showRemoveBatchConfirmDialog && canRemoveSongs) {
         AlertDialog(
             onDismissRequest = { showRemoveBatchConfirmDialog = false },
             title = {
@@ -766,7 +805,11 @@ fun PlaylistDetailView(
             confirmButton = {
                 Button(
                     onClick = {
-                        onRemoveSongsFromPlaylist(customPlaylistId, selectedUris.toList())
+                        if (isCustomPlaylist && customPlaylistId != null) {
+                            onRemoveSongsFromPlaylist(customPlaylistId, selectedUris.toList())
+                        } else if (isFavorites) {
+                            onRemoveSongsFromFavorites(selectedUris.toList())
+                        }
                         selectedUris = emptySet()
                         isBatchMode = false
                         showRemoveBatchConfirmDialog = false

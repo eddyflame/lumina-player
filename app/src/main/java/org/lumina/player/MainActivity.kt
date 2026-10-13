@@ -245,7 +245,8 @@ fun LuminaPlayerApp(
                 onAddSongsToPlaylist = { id, uris -> app.repository.addSongsToPlaylist(id, uris) },
                 onRemoveSongFromPlaylist = { id, uri -> app.repository.removeSongFromPlaylist(id, uri) },
                 onRemoveSongsFromPlaylist = { id, uris -> app.repository.removeSongsFromPlaylist(id, uris) },
-                onToggleFavorite = { uri -> app.playerController.toggleFavorite(uri) }
+                onToggleFavorite = { uri -> app.playerController.toggleFavorite(uri) },
+                onSetFavorites = { uris, isFav -> app.playerController.setFavorites(uris, isFav) }
             )
 
             // Fullscreen vinyl & lyrics player screen
