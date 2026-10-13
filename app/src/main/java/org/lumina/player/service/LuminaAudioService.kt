@@ -338,11 +338,8 @@ class LuminaAudioService : MediaSessionService() {
      * Keeps player.volume at 1.0f to avoid hardware AudioFlinger mixer step quantization clicks.
      */
     fun playWithRamp() {
-        if (!player.isPlaying) {
-            val pos = player.currentPosition
-            if (pos > 0) {
-                player.seekTo(pos)
-            }
+        if (!player.isPlaying && player.currentMediaItem != null) {
+            player.seekTo(player.currentPosition)
         }
         visualizerProcessor.triggerSoftRamp()
         player.volume = 1.0f

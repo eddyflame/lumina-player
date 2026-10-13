@@ -61,4 +61,43 @@ class PlayModeAndDspTest {
         proc.resetSpectrum()
         assertEquals(24, proc.spectrumFlow.value.size)
     }
+
+    @Test
+    fun testVisualizerProcessorPcmRampScaling() {
+        val proc = org.lumina.player.core.dsp.VisualizerAudioProcessor(barCount = 24)
+        val format = androidx.media3.common.audio.AudioProcessor.AudioFormat(
+            44100,
+            2,
+            androidx.media3.common.C.ENCODING_PCM_16BIT
+        )
+        proc.configure(format)
+        proc.flush()
+
+        // Provide 100 frames of PCM 16-bit audio with max amplitude (30000)
+        val frameCount = 100
+        val bytesPerFrame = 4 // 2 channels * 2 bytes
+        val byteBuffer = java.nio.ByteBuffer.allocateDirect(frameCount * bytesPerFrame)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+
+        for (i in 0 until frameCount) {
+            byteBuffer.putShort(30000.toShort()) // L
+            byteBuffer.putShort(30000.toShort()) // R
+        }
+        byteBuffer.flip()
+
+        proc.queueInput(byteBuffer)
+        val outputBuffer = proc.output
+        assertTrue(outputBuffer.hasRemaining())
+
+        val firstSampleL = outputBuffer.short
+        val firstSampleR = outputBuffer.short
+        // First sample should be scaled down to 0 or near 0 by Hann window
+        assertEquals(0, firstSampleL.toInt())
+        assertEquals(0, firstSampleR.toInt())
+
+        // Read sample at frame 50: should be noticeably scaled up but less than 30000
+        outputBuffer.position(50 * bytesPerFrame)
+        val midSample = outputBuffer.short
+        assertTrue("Mid sample ($midSample) should be greater than 0 and less than 30000", midSample in 1..29999)
+    }
 }

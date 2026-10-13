@@ -86,15 +86,25 @@ class VisualizerAudioProcessor(
         return inputAudioFormat // Pass-through unaltered audio
     }
 
+    private var lastInputTimeMs = 0L
+
     override fun onFlush() {
         super.onFlush()
         pcmSampleIndex = 0
         rampFramesRemaining = totalRampFrames
+        lastInputTimeMs = 0L
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val remaining = inputBuffer.remaining()
         if (remaining == 0) return
+
+        // If audio stream was paused, idle, or starved for > 80ms, re-arm anti-pop soft ramp
+        val now = System.currentTimeMillis()
+        if (lastInputTimeMs > 0 && (now - lastInputTimeMs) > 80L) {
+            rampFramesRemaining = totalRampFrames
+        }
+        lastInputTimeMs = now
 
         // Pass-through audio data to downstream sink so playback remains bit-perfect
         val outputBuffer = replaceOutputBuffer(remaining)
@@ -116,7 +126,7 @@ class VisualizerAudioProcessor(
                 val framesToRamp = totalFrames.coerceAtMost(rampFramesRemaining)
                 val out = outputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN)
                 for (f in 0 until framesToRamp) {
-                    val currentRampIndex = totalRampFrames - rampFramesRemaining
+                    val currentRampIndex = (totalRampFrames - rampFramesRemaining).coerceIn(0, totalRampFrames)
                     val fraction = currentRampIndex.toFloat() / totalRampFrames.toFloat()
                     // Raised cosine (Hann) window for mathematically continuous zero-derivative ramp
                     val gain = (0.5f - 0.5f * kotlin.math.cos(Math.PI * fraction).toFloat()).coerceIn(0f, 1f)
@@ -337,6 +347,7 @@ class VisualizerAudioProcessor(
         resetSpectrum()
         pcmSampleIndex = 0
         rampFramesRemaining = totalRampFrames
+        lastInputTimeMs = 0L
     }
 
     /**
