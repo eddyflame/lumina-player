@@ -143,7 +143,7 @@ class PlayerController(
     fun playSong(song: Song, newQueue: List<Song> = emptyList()) {
         val intent = Intent(context, LuminaAudioService::class.java)
         runCatching {
-            androidx.core.content.ContextCompat.startForegroundService(context, intent)
+            context.startService(intent)
         }
         if (newQueue.isNotEmpty()) {
             _queue.value = newQueue
@@ -172,7 +172,7 @@ class PlayerController(
         audioPrefs?.setLastPositionMs(0L)
         audioPrefs?.setLastQueueUris(_queue.value.map { it.uri })
 
-        // 加载封面、歌词与技术参数
+        // Load artwork, lyrics, and technical audio parameters asynchronously
         scope.launch(Dispatchers.IO) {
             val art = AudioTagReader.extractArtwork(context, song.uri, song.filePath)
             val artBytes = art?.let { bitmap ->
@@ -195,7 +195,7 @@ class PlayerController(
             val parsed = if (!lyricsText.isNullOrBlank()) LrcParser.parse(lyricsText) else emptyList()
             _currentLyrics.value = parsed
 
-            // 记录曲目播放计数
+            // Record song play count
             repository.recordPlay(song.uri)
         }
 
@@ -272,7 +272,7 @@ class PlayerController(
         val q = _queue.value
         if (q.isEmpty()) return
 
-        // 如果播放时间已经超过 3 秒，先跳回本首歌开头
+        // If playback position exceeds 3 seconds, seek back to beginning of current track
         if (_currentPositionMs.value > 3000L) {
             seekTo(0L)
             return
@@ -356,13 +356,13 @@ class PlayerController(
                 remaining--
                 _sleepTimerRemainingSeconds.value = remaining
 
-                // 剩余 10 秒开启温和音量淡出
+                // Gentle volume fade-out during last 10 seconds
                 if (remaining <= 10) {
                     val volume = remaining / 10f
                     service?.player?.volume = volume.coerceIn(0f, 1f)
                 }
             }
-            // 倒计时结束
+            // Sleep timer countdown finished
             pause()
             service?.player?.volume = 1f
             _sleepTimerRemainingSeconds.value = null
@@ -372,7 +372,7 @@ class PlayerController(
     fun setSleepTimerEndOfTrack() {
         sleepTimerJob?.cancel()
         stopAtEndOfTrack = true
-        _sleepTimerRemainingSeconds.value = -1L // 表示播完当前曲目
+        _sleepTimerRemainingSeconds.value = -1L // Indicates stop at the end of current track
     }
 
     fun cancelSleepTimer() {
@@ -418,7 +418,7 @@ class PlayerController(
                     _durationMs.value = dur
                 }
                 saveCounter++
-                if (saveCounter >= 5) { // 每秒存一次播放进度
+                if (saveCounter >= 5) { // Persist playback position once per second
                     saveCounter = 0
                     val audioPrefs = (context.applicationContext as? org.lumina.player.LuminaApp)?.audioPreferences
                     audioPrefs?.setLastPositionMs(pos)
@@ -433,7 +433,8 @@ class PlayerController(
     }
 
     /**
-     * 恢复上次退出或异常中断时的播放曲目、队列与进度（杜绝 MiniPlayer 丢失并支持重新打开后继续上次播放）
+     * Restores previous playback song, queue, and position from interrupted/closed session.
+     * Prevents MiniPlayer loss and allows resuming seamless playback.
      */
     fun restoreLastPlaybackState(songs: List<Song>) {
         if (_currentSong.value != null || songs.isEmpty()) return
@@ -456,7 +457,7 @@ class PlayerController(
         _durationMs.value = targetSong.durationMs
         notifyWidgetUpdate()
 
-        // 后台静默预加载封面、歌词与音频元数据
+        // Silently preload artwork, lyrics, and metadata in the background
         scope.launch(Dispatchers.IO) {
             val art = AudioTagReader.extractArtwork(context, targetSong.uri, targetSong.filePath)
             val meta = AudioTagReader.extractMetadata(context, targetSong.uri, targetSong.filePath)

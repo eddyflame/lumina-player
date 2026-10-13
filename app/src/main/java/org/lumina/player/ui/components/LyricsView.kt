@@ -38,7 +38,7 @@ import org.lumina.player.core.lyrics.LyricLine
 import org.lumina.player.core.lyrics.LrcParser
 
 /**
- * 实时同步滚动歌词组件 (支持逐行高亮、点击定位跳转、时间微调)
+ * Real-time synchronized scrolling lyrics view supporting highlighting, seek-to-line, and offset fine-tuning.
  */
 @Composable
 fun LyricsView(
@@ -67,7 +67,7 @@ fun LyricsView(
     val activeIndex = LrcParser.findCurrentIndex(lyrics, currentPositionMs, offsetMs)
     val listState = rememberLazyListState()
 
-    // 随进度自动平滑滚动到当前活跃行居中
+    // Smoothly scroll active line towards center as playback progresses
     LaunchedEffect(activeIndex) {
         if (activeIndex >= 0 && activeIndex in lyrics.indices) {
             val targetScroll = (activeIndex - 2).coerceAtLeast(0)
@@ -76,7 +76,7 @@ fun LyricsView(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // 顶部微调控制条
+        // Top offset fine-tuning adjustment controls
         Row(
             modifier = Modifier
                 .fillMaxWidth()

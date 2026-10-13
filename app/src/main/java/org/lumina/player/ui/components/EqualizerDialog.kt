@@ -81,7 +81,7 @@ fun EqualizerDialog(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
             ) {
-                // 预设选择器
+                // Equalizer preset selector
                 Text(
                     text = stringResource(R.string.eq_presets),
                     style = MaterialTheme.typography.titleMedium,
@@ -123,7 +123,7 @@ fun EqualizerDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 频段滑块
+                // Graphic equalizer frequency band sliders
                 Text(
                     text = "Graphic EQ Bands",
                     style = MaterialTheme.typography.titleMedium,
@@ -162,7 +162,7 @@ fun EqualizerDialog(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                // 低音增强
+                // Bass Boost effect
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -180,7 +180,7 @@ fun EqualizerDialog(
                     enabled = isEnabled
                 )
 
-                // 3D 环绕声
+                // 3D Virtualizer surround effect
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -200,7 +200,7 @@ fun EqualizerDialog(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                // 播放速度
+                // Playback speed adjustment
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween

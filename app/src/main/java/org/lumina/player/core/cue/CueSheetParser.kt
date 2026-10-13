@@ -5,9 +5,8 @@ import org.lumina.player.core.model.Song
 import java.io.File
 
 /**
- * 纯 Kotlin 高性能 CUE Sheet 状态机解析器
- *
- * 将整轨音频（如单文件 FLAC / APE + .cue）在内存中解析为精确的独立虚拟分轨曲目
+ * High-performance pure Kotlin state machine parser for CUE sheets.
+ * Parses single-file image audio (.flac, .ape + .cue) into precise virtual split tracks.
  */
 object CueSheetParser {
 
@@ -27,7 +26,7 @@ object CueSheetParser {
     )
 
     /**
-     * 解析 CUE 文本内容
+     * Parses raw CUE sheet content into structured CueSheet metadata.
      */
     fun parse(cueContent: String): CueSheet {
         var albumTitle = ""
@@ -64,7 +63,7 @@ object CueSheetParser {
                     audioFileName = extractQuotedOrRest(trimmed.substring(5).substringBeforeLast(" "))
                 }
                 trimmed.startsWith("TRACK ", ignoreCase = true) -> {
-                    // 保存上一首曲目
+                    // Save preceding track
                     if (currentTrackNumber > 0) {
                         tracks.add(
                             CueTrack(
@@ -88,7 +87,7 @@ object CueSheetParser {
             }
         }
 
-        // 保存最后一首
+        // Save final track
         if (currentTrackNumber > 0) {
             tracks.add(
                 CueTrack(
@@ -100,7 +99,7 @@ object CueSheetParser {
             )
         }
 
-        // 计算每首歌曲的 endMs
+        // Calculate endMs for each track based on next track start index
         val resolvedTracks = tracks.mapIndexed { index, track ->
             val nextTrack = tracks.getOrNull(index + 1)
             val endMs = nextTrack?.startMs ?: 0L
@@ -116,7 +115,7 @@ object CueSheetParser {
     }
 
     /**
-     * 将 CUE 分轨转为虚拟曲目列表并绑定物理音频文件
+     * Converts parsed CUE tracks into virtual playable Song models linked to the physical audio file.
      */
     fun createVirtualSongs(cueSheet: CueSheet, audioFile: File, totalAudioDurationMs: Long): List<Song> {
         val baseFormat = AudioFormatType.fromExtension(audioFile.name)
@@ -146,7 +145,7 @@ object CueSheetParser {
     }
 
     /**
-     * 解析 mm:ss:ff 时间戳（75帧 = 1秒）
+     * Parses mm:ss:ff timestamp where 75 frames equal 1 second (standard Red Book audio CD frame rate).
      */
     private fun parseCueTimestamp(timeStr: String): Long {
         val parts = timeStr.split(":")

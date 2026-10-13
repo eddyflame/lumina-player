@@ -135,7 +135,7 @@ fun FullPlayerScreen(
     val displayPosition = if (isUserSeeking) userSeekPositionMs.toLong() else currentPositionMs
     val progressFraction = if (durationMs > 0) (displayPosition.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
 
-    // 提取封面动态主色 (Palette)
+    // Extract dynamic dominant artwork palette color
     val dominantColor = remember(artwork) {
         if (artwork != null) {
             val palette = androidx.palette.graphics.Palette.from(artwork).generate()
@@ -146,7 +146,7 @@ fun FullPlayerScreen(
         }
     }
 
-    // 唱片平滑旋转动画
+    // Smooth vinyl rotation animation
     val infiniteTransition = rememberInfiniteTransition(label = "vinyl")
     val vinylRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -158,7 +158,7 @@ fun FullPlayerScreen(
         label = "vinyl_rotate"
     )
 
-    // 动态流光渐变背景
+    // Ambient dynamic gradient background
     val ambientGradient = Brush.verticalGradient(
         colors = listOf(
             dominantColor.copy(alpha = 0.32f),
@@ -173,7 +173,7 @@ fun FullPlayerScreen(
             .clickable(
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                 indication = null
-            ) { /* 消费所有点击，彻底阻断对底层主界面的误触 */ },
+            ) { /* Consume all clicks to prevent accidental pass-through to underlying screens */ },
         color = MaterialTheme.colorScheme.background
     ) {
         Box(
@@ -187,7 +187,7 @@ fun FullPlayerScreen(
                     .statusBarsPadding()
                     .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {
-            // 顶部导航栏
+            // Top navigation bar
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -201,7 +201,7 @@ fun FullPlayerScreen(
                     )
                 }
 
-                // 顶部中间模式切换指示
+                // Top center playback mode / Hi-Res badge indicator
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = stringResource(R.string.now_playing),
@@ -282,7 +282,7 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 中部展示区域（可点击在黑胶与歌词间切换）
+            // Middle vinyl artwork / lyrics display area (tap to toggle)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -304,7 +304,7 @@ fun FullPlayerScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        // 黑胶唱片艺术质感容器
+                        // Vinyl record artistic container
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth(0.82f)
@@ -315,7 +315,7 @@ fun FullPlayerScreen(
                                 .rotate(if (isPlaying) vinylRotation else 0f),
                             contentAlignment = Alignment.Center
                         ) {
-                            // 黑胶唱片黑圈底纹
+                            // Vinyl record grooves and center label
                             Surface(
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.surfaceVariant,
@@ -348,7 +348,7 @@ fun FullPlayerScreen(
 
                         Spacer(modifier = Modifier.height(28.dp))
 
-                        // 动态频谱律动
+                        // Dynamic audio spectrum visualizer
                         AudioVisualizer(
                             isPlaying = isPlaying,
                             modifier = Modifier.fillMaxWidth(0.75f),
@@ -360,7 +360,7 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 歌曲信息与收藏按钮
+            // Track title, artist, and favorite toggle button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -395,7 +395,7 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 播放进度滑块与时间格式化
+            // Playback progress slider and time formatting
             Column(modifier = Modifier.fillMaxWidth()) {
                 Slider(
                     value = progressFraction,
@@ -426,13 +426,13 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 核心播放控制大按钮行
+            // Core playback controls button row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 循环/随机播放模式
+                // Playback repeat/shuffle mode cycle button
                 IconButton(onClick = onCyclePlayMode) {
                     val icon = when (playMode) {
                         PlayMode.SEQUENTIAL, PlayMode.REPEAT_ALL -> Icons.Default.Repeat
@@ -443,7 +443,7 @@ fun FullPlayerScreen(
                     Icon(imageVector = icon, contentDescription = "Play Mode", tint = tint)
                 }
 
-                // 上一曲
+                // Previous track
                 IconButton(onClick = onSkipPrevious) {
                     Icon(
                         imageVector = Icons.Default.SkipPrevious,
@@ -452,7 +452,7 @@ fun FullPlayerScreen(
                     )
                 }
 
-                // 播放/暂停大悬浮按钮
+                // Play / Pause prominent floating button
                 FilledIconButton(
                     onClick = onTogglePlayPause,
                     modifier = Modifier.size(68.dp),
@@ -468,7 +468,7 @@ fun FullPlayerScreen(
                     )
                 }
 
-                // 下一曲
+                // Next track
                 IconButton(onClick = onSkipNext) {
                     Icon(
                         imageVector = Icons.Default.SkipNext,
@@ -477,7 +477,7 @@ fun FullPlayerScreen(
                     )
                 }
 
-                // 播放队列展开按钮
+                // Queue bottom sheet trigger button
                 IconButton(onClick = onOpenQueue) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.QueueMusic,
@@ -492,7 +492,7 @@ fun FullPlayerScreen(
     }
 }
 
-    // 各项对话框
+    // Dialog sheets and overlays
     if (showAudioInfoDialog) {
         AudioInfoDialog(
             song = currentSong,

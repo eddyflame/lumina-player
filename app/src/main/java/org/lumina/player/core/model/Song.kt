@@ -3,7 +3,7 @@ package org.lumina.player.core.model
 import android.net.Uri
 
 /**
- * 歌曲核心数据模型
+ * Core audio track domain model representing local songs and virtual CUE sheet tracks.
  */
 data class Song(
     val id: Long,
@@ -28,7 +28,7 @@ data class Song(
     val playCount: Int = 0,
     val lastPlayedTime: Long = 0L,
     val dateAdded: Long = 0L,
-    // CUE 分轨特有属性
+    // CUE sheet virtual split track attributes
     val isVirtualCueTrack: Boolean = false,
     val cueStartMs: Long = 0L,
     val cueEndMs: Long = 0L

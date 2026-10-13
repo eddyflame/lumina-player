@@ -10,7 +10,7 @@ import org.lumina.player.core.model.AudioTechnicalInfo
 import java.io.File
 
 /**
- * 纯 Kotlin 音频元数据、封面与歌词提取器
+ * Pure Kotlin audio metadata, artwork, and lyrics extractor using MediaMetadataRetriever.
  */
 object AudioTagReader {
 
@@ -26,7 +26,7 @@ object AudioTagReader {
     )
 
     /**
-     * 提取音频元数据与技术参数
+     * Extracts audio metadata, ID3 tags, and technical parameters.
      */
     fun extractMetadata(context: Context, uriString: String, filePath: String): ExtractedAudioMeta {
         val retriever = MediaMetadataRetriever()
@@ -56,7 +56,7 @@ object AudioTagReader {
                 AudioFormatType.fromExtension(uriString)
             }
 
-            // 读取采样率等（如果系统支持）
+            // Read sample rate if supported by platform version (Android 12+)
             val sampleRateStr = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                 retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)
             } else null
@@ -82,7 +82,7 @@ object AudioTagReader {
                 isHiRes = format.isHiRes || bitDepth >= 24 || sampleRate >= 48000
             )
 
-            // 查找同名外部 LRC 歌词
+            // Search for external companion .lrc file
             val externalLrc = findExternalLrc(filePath)
 
             ExtractedAudioMeta(
@@ -105,7 +105,7 @@ object AudioTagReader {
     }
 
     /**
-     * 提取内嵌专辑封面 Bitmap
+     * Extracts embedded album cover artwork Bitmap.
      */
     fun extractArtwork(context: Context, uriString: String, filePath: String): Bitmap? {
         val retriever = MediaMetadataRetriever()
@@ -131,7 +131,7 @@ object AudioTagReader {
     }
 
     /**
-     * 在同目录下寻找同名的 .lrc 歌词文件
+     * Searches for companion .lrc file in the same directory.
      */
     fun findExternalLrc(audioFilePath: String): String? {
         if (audioFilePath.isBlank()) return null

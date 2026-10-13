@@ -18,7 +18,7 @@ object LrcParser {
     private val TIME_REGEX = "\\[(\\d{1,2}):(\\d{2})(?:\\.(\\d{1,3}))?]".toRegex()
 
     /**
-     * 解析 LRC 歌词文本
+     * Parses raw LRC format lyric text into structured LyricLine models.
      */
     fun parse(lrcContent: String): List<LyricLine> {
         val result = mutableListOf<LyricLine>()
@@ -35,7 +35,7 @@ object LrcParser {
             val matches = TIME_REGEX.findAll(line).toList()
             if (matches.isEmpty()) continue
 
-            // 提取纯歌词文本
+            // Extract clean lyric text content
             val lastMatch = matches.last()
             val text = line.substring(lastMatch.range.last + 1).trim()
 
@@ -61,7 +61,7 @@ object LrcParser {
     }
 
     /**
-     * 根据当前播放进度计算当前正在播放的歌词行索引 (采用二分查找)
+     * Calculates active lyric line index using binary search based on playback position.
      */
     fun findCurrentIndex(lines: List<LyricLine>, currentPositionMs: Long, offsetMs: Long = 0L): Int {
         if (lines.isEmpty()) return -1

@@ -1,38 +1,31 @@
 package org.lumina.player.service
 
-import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.Context
+import android.app.Service
 import android.content.Intent
-import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
-import android.os.Bundle
 import android.os.IBinder
 import android.os.PowerManager
-import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.session.CommandButton
-import androidx.media3.session.DefaultMediaNotificationProvider
-import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionResult
-import com.google.common.collect.ImmutableList
 import org.lumina.player.LuminaApp
 import org.lumina.player.MainActivity
-import org.lumina.player.R
 import org.lumina.player.core.dsp.AudioDspController
 import org.lumina.player.core.model.Song
 
-class LuminaAudioService : MediaSessionService() {
+/**
+ * Background audio playback service hosting ExoPlayer and MediaSession.
+ * Operates without foreground notifications per user preference for distraction-free listening.
+ */
+class LuminaAudioService : Service() {
 
     private var mediaSession: MediaSession? = null
     lateinit var player: ExoPlayer
@@ -50,6 +43,7 @@ class LuminaAudioService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
 
+        // Acquire CPU partial wake lock to prevent background audio interruption when screen is turned off
         val powerManager = getSystemService(PowerManager::class.java)
         wakeLock = powerManager?.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
@@ -64,13 +58,13 @@ class LuminaAudioService : MediaSessionService() {
             .build()
 
         player = ExoPlayer.Builder(this)
-            .setAudioAttributes(audioAttributes, true) // true = handle audio focus automatically
-            .setHandleAudioBecomingNoisy(true) // auto-pause on headphone unplug
+            .setAudioAttributes(audioAttributes, true) // Automatically handle audio focus
+            .setHandleAudioBecomingNoisy(true) // Auto-pause on headphone disconnection
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .setSeekParameters(androidx.media3.exoplayer.SeekParameters.EXACT)
             .build()
 
-        // 绑定系统音频会话以支持均衡器，并在播放时维持 CPU 唤醒锁，防止息屏后被系统休眠中断播放
+        // Attach system audio session for equalizer & maintain CPU wake lock during active playback
         player.addListener(object : Player.Listener {
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 if (audioSessionId != C.AUDIO_SESSION_ID_UNSET && audioSessionId != 0) {
@@ -92,36 +86,15 @@ class LuminaAudioService : MediaSessionService() {
             dspController.attachAudioSession(initialSessionId)
         }
 
-        // 创建前台服务通知渠道 (Android 8.0+)
+        // Clean up any lingering notification channels and cancel past notifications
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager?.cancelAll()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            // 清理旧低优先级通道（低优先级通道在 HyperOS 上无法显示锁屏及灵动岛）
-            runCatching { notificationManager?.deleteNotificationChannel("lumina_player_playback_channel") }
-
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.app_name),
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = "Lumina Player playback controls"
-                setShowBadge(false)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                enableVibration(false)
-                enableLights(false)
-                setSound(null, null)
+            runCatching {
+                notificationManager?.deleteNotificationChannel("lumina_player_playback_channel")
+                notificationManager?.deleteNotificationChannel("lumina_player_playback_channel_v2")
             }
-            notificationManager?.createNotificationChannel(channel)
         }
-
-        // 配置默认 MediaNotificationProvider 并包装适配小米 HyperOS 灵动岛 / 锁屏通知
-        val defaultNotificationProvider = DefaultMediaNotificationProvider.Builder(this)
-            .setChannelId(CHANNEL_ID)
-            .setChannelName(R.string.app_name)
-            .setNotificationId(NOTIFICATION_ID)
-            .build()
-        defaultNotificationProvider.setSmallIcon(R.drawable.ic_notification)
-
-        setMediaNotificationProvider(LuminaMediaNotificationProvider(this, defaultNotificationProvider))
 
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -133,123 +106,15 @@ class LuminaAudioService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        // Initialize MediaSession for headset and external media button controls
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(sessionActivityPendingIntent)
             .setCallback(MediaSessionCallback())
             .build()
-
-        // 关键：必须调用 addSession 才能激活 Media3 内部 MediaNotificationManager 维持前台播控通知
-        addSession(mediaSession!!)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // 关键：立即同步调用 startForeground，满足 Android 14+ 5秒内必须调用 Service.startForeground 的要求，杜绝 ANR 闪退
-        startForegroundSafely()
-        mediaSession?.let { session ->
-            onUpdateNotification(session, true)
-        }
-        return super.onStartCommand(intent, flags, startId)
-    }
-
-    private fun startForegroundSafely() {
-        runCatching {
-            val title = mediaSession?.player?.mediaMetadata?.title?.toString()
-                ?.ifBlank { null } ?: getString(R.string.app_name)
-            val artist = mediaSession?.player?.mediaMetadata?.artist?.toString()
-                ?.ifBlank { null } ?: getString(R.string.now_playing)
-
-            val openAppIntent = Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val contentPendingIntent = PendingIntent.getActivity(
-                this,
-                0,
-                openAppIntent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-
-            val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(title)
-                .setContentText(artist)
-                .setContentIntent(contentPendingIntent)
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setOngoing(true)
-                .setSilent(true)
-                .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-                .apply {
-                    val extras = Bundle().apply {
-                        putBoolean("miui.focus.enable", true)
-                        putBoolean("miui.focus.media", true)
-                        putInt("miui.focus.type", 1)
-                        putBoolean("miui.focus.ongoing", true)
-                        putString("miui.focus.title", title)
-                        putString("miui.focus.subtitle", artist)
-                    }
-                    setExtras(extras)
-                }
-                .build()
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(
-                    NOTIFICATION_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-                )
-            } else {
-                startForeground(NOTIFICATION_ID, notification)
-            }
-        }
-    }
-
-    private class LuminaMediaNotificationProvider(
-        private val context: Context,
-        private val defaultProvider: DefaultMediaNotificationProvider
-    ) : MediaNotification.Provider {
-
-        override fun createNotification(
-            mediaSession: MediaSession,
-            customLayout: ImmutableList<CommandButton>,
-            actionFactory: MediaNotification.ActionFactory,
-            onNotificationChangedCallback: MediaNotification.Provider.Callback
-        ): MediaNotification {
-            val mediaNotification = defaultProvider.createNotification(
-                mediaSession,
-                customLayout,
-                actionFactory,
-                onNotificationChangedCallback
-            )
-
-            val notification = mediaNotification.notification
-            // 确保锁屏完全可见 (Public visibility on lockscreen)
-            notification.visibility = Notification.VISIBILITY_PUBLIC
-            notification.priority = Notification.PRIORITY_MAX
-
-            // 适配小米 HyperOS 灵动岛 / 超级岛 / 焦点通知 (HyperIsland / Focus Notification)
-            val extras = notification.extras ?: Bundle()
-            extras.putBoolean("miui.focus.enable", true)
-            extras.putBoolean("miui.focus.media", true)
-            extras.putInt("miui.focus.type", 1) // 持续媒体播放服务
-            extras.putBoolean("miui.focus.ongoing", true)
-            val title = mediaSession.player.mediaMetadata.title?.toString() ?: ""
-            val artist = mediaSession.player.mediaMetadata.artist?.toString() ?: ""
-            extras.putString("miui.focus.title", title)
-            extras.putString("miui.focus.subtitle", artist)
-            extras.putString("miui.focus.ticker", if (artist.isNotBlank()) "$title - $artist" else title)
-            extras.putBoolean("miui.showActionInCompactView", true)
-            notification.extras = extras
-
-            return MediaNotification(mediaNotification.notificationId, notification)
-        }
-
-        override fun handleCustomCommand(
-            mediaSession: MediaSession,
-            action: String,
-            extras: Bundle
-        ): Boolean {
-            return defaultProvider.handleCustomCommand(mediaSession, action, extras)
-        }
+        return START_STICKY
     }
 
     private inner class MediaSessionCallback : MediaSession.Callback {
@@ -292,17 +157,8 @@ class LuminaAudioService : MediaSessionService() {
         }
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
-        return mediaSession
-    }
-
-    override fun onBind(intent: Intent?): IBinder? {
-        val superBinder = super.onBind(intent)
-        return if (intent?.action == "androidx.media3.session.MediaSessionService") {
-            superBinder
-        } else {
-            binder
-        }
+    override fun onBind(intent: Intent?): IBinder {
+        return binder
     }
 
     fun prepareSong(song: Song, artworkBytes: ByteArray? = null, playWhenReady: Boolean = true) {
@@ -317,7 +173,7 @@ class LuminaAudioService : MediaSessionService() {
 
         val metadata = metadataBuilder.build()
 
-        // 对于 CUE 分轨，底层播放器必须加载真实的物理音频文件路径，而非带 #cue 标记的虚拟 URI
+        // For CUE tracks, the underlying player loads the physical audio file with start/end clipping
         val playableUri = if (song.isVirtualCueTrack && song.filePath.isNotBlank()) {
             android.net.Uri.fromFile(java.io.File(song.filePath))
         } else {
@@ -343,10 +199,6 @@ class LuminaAudioService : MediaSessionService() {
         player.setMediaItem(mediaItem)
         player.prepare()
         player.playWhenReady = playWhenReady
-
-        mediaSession?.let { session ->
-            onUpdateNotification(session, true)
-        }
     }
 
     fun updateArtwork(artworkBytes: ByteArray?) {
@@ -358,20 +210,10 @@ class LuminaAudioService : MediaSessionService() {
             .setMediaMetadata(newMetadata)
             .build()
         player.replaceMediaItem(player.currentMediaItemIndex, newItem)
-
-        mediaSession?.let { session ->
-            onUpdateNotification(session, isPlaybackOngoing)
-        }
-    }
-
-    companion object {
-        const val CHANNEL_ID = "lumina_player_playback_channel_v2"
-        const val NOTIFICATION_ID = 1001
     }
 
     override fun onDestroy() {
         mediaSession?.run {
-            removeSession(this)
             player.release()
             release()
             mediaSession = null

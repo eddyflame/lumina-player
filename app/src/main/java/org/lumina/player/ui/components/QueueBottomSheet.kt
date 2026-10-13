@@ -56,7 +56,7 @@ fun QueueBottomSheet(
                 .fillMaxWidth()
                 .padding(bottom = 24.dp)
         ) {
-            // 头部标题栏与清空按钮
+            // Header title and clear queue button
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -92,7 +92,7 @@ fun QueueBottomSheet(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // 队列列表
+            // Playback queue song list
             LazyColumn(modifier = Modifier.fillMaxWidth().height(360.dp)) {
                 itemsIndexed(queue) { index, song ->
                     val isCurrent = index == currentIndex

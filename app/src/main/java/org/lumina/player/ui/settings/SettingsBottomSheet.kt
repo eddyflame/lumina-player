@@ -72,7 +72,7 @@ fun SettingsBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 主题模式选择
+            // Theme mode selector
             Text(
                 text = stringResource(R.string.theme_mode),
                 style = MaterialTheme.typography.titleMedium,
@@ -102,7 +102,7 @@ fun SettingsBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 深色风格
+            // Dark theme style selector
             Text(
                 text = stringResource(R.string.dark_style),
                 style = MaterialTheme.typography.titleMedium,
@@ -127,7 +127,7 @@ fun SettingsBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 动态壁纸取色
+            // Dynamic wallpaper palette color extraction
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -146,7 +146,7 @@ fun SettingsBottomSheet(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            // 过滤短音频
+            // Filter short audio clips (<30s)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -161,7 +161,7 @@ fun SettingsBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 音效与均衡器设置入口
+            // Equalizer and DSP audio effects settings entry
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -204,7 +204,7 @@ fun SettingsBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 重新扫描曲库
+            // Rescan music library
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -232,10 +232,10 @@ fun SettingsBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 关于软件与作者信息 (v0.1.1 & Author eddy)
+            // About Lumina Player and Author Information (Author eddy)
             val context = LocalContext.current
             val versionName = remember {
-                runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "0.1.1"
+                runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "0.1.2"
             }
 
             Surface(

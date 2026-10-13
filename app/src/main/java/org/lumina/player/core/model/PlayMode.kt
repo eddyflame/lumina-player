@@ -1,16 +1,16 @@
 package org.lumina.player.core.model
 
 /**
- * 播放模式
+ * Playback queue repetition and shuffling modes.
  */
 enum class PlayMode {
-    /** 顺序播放（列表播放到底停止） */
+    /** Sequential playback (stops at the end of playlist) */
     SEQUENTIAL,
-    /** 列表循环 */
+    /** Repeat all songs in playlist */
     REPEAT_ALL,
-    /** 单曲循环 */
+    /** Repeat single track */
     REPEAT_ONE,
-    /** 随机播放 */
+    /** Shuffle playlist order */
     SHUFFLE;
 
     fun next(): PlayMode = when (this) {

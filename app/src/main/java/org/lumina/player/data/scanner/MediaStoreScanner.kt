@@ -13,12 +13,12 @@ import org.lumina.player.core.tag.AudioTagReader
 import java.io.File
 
 /**
- * 本地曲库与 MediaStore 异步扫描器（包含 CUE 伴生分轨检测）
+ * Asynchronous scanner for Android MediaStore and local filesystem including CUE sheet companion track detection.
  */
 class MediaStoreScanner(private val context: Context) {
 
     /**
-     * 扫描系统媒体库
+     * Scans system MediaStore for audio files.
      */
     suspend fun scanMediaStore(filterShortAudio: Boolean = true): List<Song> = withContext(Dispatchers.IO) {
         val songs = mutableListOf<Song>()
@@ -88,7 +88,7 @@ class MediaStoreScanner(private val context: Context) {
                     val contentUri = ContentUris.withAppendedId(collection, id).toString()
                     val format = AudioFormatType.fromExtension(filePath.ifBlank { title })
 
-                    // 检查同目录是否存在伴生 .cue 文件
+                    // Check for companion .cue file in the same directory
                     val cueFile = findAccompanyingCue(filePath)
                     if (cueFile != null && File(filePath).exists()) {
                         val cueText = runCatching { cueFile.readText(Charsets.UTF_8) }.getOrNull()
@@ -98,12 +98,12 @@ class MediaStoreScanner(private val context: Context) {
                             if (cueSheet.tracks.isNotEmpty()) {
                                 val virtualTracks = CueSheetParser.createVirtualSongs(cueSheet, File(filePath), duration)
                                 songs.addAll(virtualTracks)
-                                continue // 已经拆分为虚拟分轨，跳过整轨
+                                continue // Already split into virtual tracks, skip full image track
                             }
                         }
                     }
 
-                    // 补充技术参数
+                    // Supplement technical parameters and tags
                     val meta = if (filePath.isNotBlank()) {
                         AudioTagReader.extractMetadata(context, contentUri, filePath)
                     } else null
@@ -133,14 +133,14 @@ class MediaStoreScanner(private val context: Context) {
                 }
             }
         } catch (_: Exception) {
-            // 安全容错
+            // Fail-safe fault tolerance
         }
 
         songs
     }
 
     /**
-     * 遍历物理文件夹进行纯离线深度扫描（适用于外置存储、Hi-Fi 无损文件夹）
+     * Traverses physical directories for deep offline folder scanning (suitable for external storage & Hi-Fi folders).
      */
     suspend fun scanDirectory(dir: File): List<Song> = withContext(Dispatchers.IO) {
         val songs = mutableListOf<Song>()
@@ -187,11 +187,11 @@ class MediaStoreScanner(private val context: Context) {
         if (!audioFile.exists()) return null
         val parent = audioFile.parentFile ?: return null
 
-        // 尝试 1: audioFileName.cue
+        // Strategy 1: audioFileName.cue
         val directCue = File(parent, "${audioFile.nameWithoutExtension}.cue")
         if (directCue.exists()) return directCue
 
-        // 尝试 2: 目录下唯一的 .cue 文件
+        // Strategy 2: unique .cue file in directory
         val cueFiles = parent.listFiles { f -> f.extension.equals("cue", ignoreCase = true) }
         return if (cueFiles != null && cueFiles.size == 1) cueFiles[0] else null
     }

@@ -3,7 +3,7 @@ package org.lumina.player.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ==========================================
-// 核心品牌色 (Lumina Azure Blue & Music Cyan)
+// Core Brand Colors (Lumina Azure Blue & Music Cyan)
 // ==========================================
 val LuminaPrimary = Color(0xFF0284C7)
 val LuminaOnPrimary = Color(0xFFFFFFFF)
@@ -14,7 +14,7 @@ val LuminaAccent = Color(0xFF38BDF8)
 val LuminaAccentGlow = Color(0xFF7DD3FC)
 
 // ==========================================
-// 1. 柔和石板灰调 (Slate Charcoal - 深度护眼蓝灰)
+// 1. Soft Slate Charcoal Theme (Deep eye-care blue-gray)
 // ==========================================
 val LuminaSlateBackground = Color(0xFF0F172A)
 val LuminaSlateSurface = Color(0xFF1E293B)
@@ -28,7 +28,7 @@ val LuminaSlateOnSurface = Color(0xFFF8FAFC)
 val LuminaSlateOnSurfaceVariant = Color(0xFF94A3B8)
 
 // ==========================================
-// 2. 极致纯黑调 (AMOLED Pure Black - 省电全黑)
+// 2. AMOLED Pure Black Theme (Power-saving absolute pitch black)
 // ==========================================
 val LuminaAmoledBackground = Color(0xFF000000)
 val LuminaAmoledSurface = Color(0xFF000000)
@@ -42,7 +42,7 @@ val LuminaAmoledOnSurface = Color(0xFFFFFFFF)
 val LuminaAmoledOnSurfaceVariant = Color(0xFFA1A1AA)
 
 // ==========================================
-// 3. 高保真音乐格式专属标签色 (Hi-Res Badges)
+// 3. Hi-Res Audiophile Format Badges
 // ==========================================
 val HiResGold = Color(0xFFFFB703)
 val HiResFlac = Color(0xFF10B981)

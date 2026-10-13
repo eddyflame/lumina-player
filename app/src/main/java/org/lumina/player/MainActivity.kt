@@ -120,12 +120,11 @@ fun LuminaPlayerApp(
     val queueSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val settingsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // 权限请求 Launcher (音频访问与前台/锁屏/灵动岛播放通知)
+    // Audio permission request launcher
     val permissionsToRequest = remember {
         buildList {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.READ_MEDIA_AUDIO)
-                add(Manifest.permission.POST_NOTIFICATIONS)
             } else {
                 add(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
@@ -147,7 +146,7 @@ fun LuminaPlayerApp(
         }
     }
 
-    // 启动初始扫描与权限检查
+    // Initial media library scan and permission check
     LaunchedEffect(Unit) {
         val missingPermissions = permissionsToRequest.filter {
             ContextCompat.checkSelfPermission(activity, it) != PackageManager.PERMISSION_GRANTED
@@ -159,7 +158,7 @@ fun LuminaPlayerApp(
             permissionLauncher.launch(missingPermissions.toTypedArray())
         }
 
-        // 处理外部通过 VIEW intent 打开的音频
+        // Handle audio opened externally via VIEW intent
         intent?.data?.let { uri ->
             val uriString = uri.toString()
             val title = uri.lastPathSegment ?: "External Audio"
@@ -176,14 +175,14 @@ fun LuminaPlayerApp(
         }
     }
 
-    // 当曲库扫描加载完成时，自动恢复上次播放的曲目与队列（恢复 MiniPlayer 与播放进度）
+    // When library scan completes, restore last played song, queue, and playback position
     LaunchedEffect(songs) {
         if (songs.isNotEmpty()) {
             app.playerController.restoreLastPlaybackState(songs)
         }
     }
 
-    // 拦截返回键：如果全屏播放器打开，先折叠为微型播放器
+    // Intercept back button: collapse full-screen player if open
     BackHandler(enabled = isFullPlayerOpen) {
         isFullPlayerOpen = false
     }
@@ -194,7 +193,7 @@ fun LuminaPlayerApp(
         dynamicColor = themeSettings.dynamicColor
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // 主曲库界面
+            // Main music library screen
             MainLibraryScreen(
                 songs = songs,
                 albums = albums,
@@ -230,7 +229,7 @@ fun LuminaPlayerApp(
                 onCreatePlaylist = { name -> app.repository.createPlaylist(name) }
             )
 
-            // 全屏黑胶/歌词播放器界面
+            // Fullscreen vinyl & lyrics player screen
             AnimatedVisibility(
                 visible = isFullPlayerOpen && currentSong != null,
                 enter = slideInVertically { it },
@@ -276,7 +275,7 @@ fun LuminaPlayerApp(
                 }
             }
 
-            // 正在播放队列弹窗
+            // Now playing queue bottom sheet
             if (isQueueOpen) {
                 QueueBottomSheet(
                     queue = queue,
@@ -295,7 +294,7 @@ fun LuminaPlayerApp(
                 )
             }
 
-            // 设置偏好弹窗
+            // Settings bottom sheet
             if (isSettingsOpen) {
                 SettingsBottomSheet(
                     themeSettings = themeSettings,
@@ -320,7 +319,7 @@ fun LuminaPlayerApp(
                 )
             }
 
-            // 独立音效与均衡器调节弹窗
+            // Equalizer and DSP audio effects dialog
             if (isEqualizerOpen) {
                 EqualizerDialog(
                     dspController = app.playerController.getDspController(),

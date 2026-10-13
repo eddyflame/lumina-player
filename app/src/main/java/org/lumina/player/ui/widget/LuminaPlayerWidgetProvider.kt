@@ -68,7 +68,7 @@ class LuminaPlayerWidgetProvider : AppWidgetProvider() {
         ) {
             val views = RemoteViews(context.packageName, R.layout.widget_player)
 
-            // 点击整个小部件打开主程序
+            // Open main activity when tapping widget container
             val openAppIntent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
@@ -80,7 +80,7 @@ class LuminaPlayerWidgetProvider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.widget_container, openPendingIntent)
 
-            // 曲目信息
+            // Track details
             if (song != null) {
                 views.setTextViewText(R.id.widget_title, song.title)
                 views.setTextViewText(R.id.widget_artist, "${song.displayArtist} · ${song.displayAlbum}")
@@ -89,14 +89,14 @@ class LuminaPlayerWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_artist, context.getString(R.string.app_subtitle))
             }
 
-            // 封面设置
+            // Album artwork
             if (artwork != null) {
                 views.setImageViewBitmap(R.id.widget_art, artwork)
             } else {
                 views.setImageViewResource(R.id.widget_art, R.drawable.ic_launcher_foreground)
             }
 
-            // 按钮操作 PendingIntent
+            // Action button PendingIntents
             views.setOnClickPendingIntent(
                 R.id.widget_btn_prev,
                 getBroadcastPendingIntent(context, ACTION_PREV, 1)
@@ -110,7 +110,7 @@ class LuminaPlayerWidgetProvider : AppWidgetProvider() {
                 getBroadcastPendingIntent(context, ACTION_NEXT, 3)
             )
 
-            // 播放 / 暂停 图标切换
+            // Play / Pause icon state toggle
             val playPauseRes = if (isPlaying) R.drawable.ic_widget_pause else R.drawable.ic_widget_play
             views.setImageViewResource(R.id.widget_btn_play_pause, playPauseRes)
 

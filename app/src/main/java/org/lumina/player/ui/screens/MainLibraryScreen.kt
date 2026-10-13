@@ -150,7 +150,7 @@ fun MainLibraryScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
-                // 顶部标题和全局操作栏
+                // Header title and global action bar
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -233,7 +233,7 @@ fun MainLibraryScreen(
                     }
                 }
 
-                // 顶部分类标签栏
+                // Top category tab bar
                 PrimaryTabRow(
                     selectedTabIndex = selectedTab,
                     modifier = Modifier.fillMaxWidth()
@@ -395,7 +395,7 @@ private fun SongsTab(
     }
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        // 头部统计与全部随机播放按钮
+        // Header track count and Shuffle All button
         item {
             Row(
                 modifier = Modifier
@@ -681,7 +681,7 @@ private fun PlaylistsTab(
     onCreatePlaylistClick: () -> Unit
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        // 智能歌单快捷入口
+        // Smart playlist quick access section
         item {
             Column(modifier = Modifier.padding(16.dp)) {
                 SmartPlaylistCard(
@@ -710,7 +710,7 @@ private fun PlaylistsTab(
             }
         }
 
-        // 自建歌单栏目
+        // Custom playlists section
         item {
             Row(
                 modifier = Modifier

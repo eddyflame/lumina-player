@@ -25,7 +25,7 @@ import org.lumina.player.ui.theme.LuminaPrimary
 import kotlin.random.Random
 
 /**
- * 现代动态频谱律动动画组件 (Audio Spectrum Visualizer)
+ * Modern dynamic audio spectrum rhythm animation component.
  */
 @Composable
 fun AudioVisualizer(

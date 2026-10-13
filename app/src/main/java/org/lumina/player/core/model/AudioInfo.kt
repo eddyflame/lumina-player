@@ -3,7 +3,7 @@ package org.lumina.player.core.model
 import java.io.File
 
 /**
- * 音频编码格式类型
+ * Audio codec and format type enumeration.
  */
 enum class AudioFormatType(val displayName: String, val isLossless: Boolean, val isHiRes: Boolean = false) {
     MP3("MP3", isLossless = false),
@@ -26,7 +26,7 @@ enum class AudioFormatType(val displayName: String, val isLossless: Boolean, val
             return when (ext) {
                 "mp3" -> MP3
                 "aac" -> AAC
-                "m4a" -> AAC // 可以后续通过解码元数据细分为 ALAC 或 AAC
+                "m4a" -> AAC // Refined to ALAC or AAC during metadata parsing
                 "ogg" -> OGG
                 "opus" -> OPUS
                 "wma" -> WMA
@@ -43,7 +43,7 @@ enum class AudioFormatType(val displayName: String, val isLossless: Boolean, val
 }
 
 /**
- * 完整技术参数详情（用于发烧友参数展示面板）
+ * Comprehensive technical audio details for audiophile information panel.
  */
 data class AudioTechnicalInfo(
     val format: AudioFormatType = AudioFormatType.UNKNOWN,

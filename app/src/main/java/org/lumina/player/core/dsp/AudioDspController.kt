@@ -7,16 +7,16 @@ import android.media.audiofx.Equalizer
 import android.media.audiofx.Virtualizer
 
 /**
- * 均衡器预设
+ * Equalizer frequency preset configuration.
  */
 data class EqPreset(
     val id: String,
     val nameResId: Int,
-    val bandLevels: List<Short> // 相对 dB 增益 (毫贝尔 mB, 例如 -1000 到 +1000)
+    val bandLevels: List<Short> // Relative dB gain in milliBels (mB, e.g. -1000 to +1000)
 )
 
 /**
- * DSP 音效引擎控制器
+ * DSP audio effects engine controller (Equalizer, Bass Boost, Virtualizer).
  */
 @Suppress("DEPRECATION")
 class AudioDspController {
@@ -32,8 +32,8 @@ class AudioDspController {
     private var currentAudioSessionId: Int = 0
 
     /**
-     * 当 ExoPlayer 的 AudioSessionId 发生变化或初始化时附加音效
-     * 防止在同一个 SessionId 上重复释放和重建硬件音效（避免切歌和拖动进度条时的爆音破音）
+     * Attaches audio effects when ExoPlayer's AudioSessionId initializes or changes.
+     * Prevents redundant release/recreation on identical sessionId to eliminate pops/crackles during seeking.
      */
     @Synchronized
     fun attachAudioSession(audioSessionId: Int) {
@@ -45,7 +45,7 @@ class AudioDspController {
         runCatching {
             equalizer = Equalizer(0, audioSessionId).apply {
                 enabled = isEnabled
-                // 恢复之前的频段设置
+                // Restore previously applied frequency band levels
                 val numBands = numberOfBands.toInt()
                 if (currentBandLevels.size == numBands) {
                     for (i in 0 until numBands) {

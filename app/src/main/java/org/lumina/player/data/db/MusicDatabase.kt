@@ -18,7 +18,7 @@ import org.lumina.player.core.model.Playlist
 import org.lumina.player.core.model.Song
 
 /**
- * 纯 Kotlin 高性能本地曲库持久化数据库 (原生 SQLiteOpenHelper + StateFlow)
+ * High-performance pure Kotlin local music library persistence database (native SQLiteOpenHelper + StateFlow).
  */
 class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
 
@@ -91,11 +91,11 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // 平滑升级
+        // Smooth schema migrations
     }
 
     /**
-     * 批量插入或增量更新扫描到的歌曲（保留收藏、播放次数等状态）
+     * Batch inserts or updates scanned songs while preserving favorite status and play statistics.
      */
     fun syncScannedSongs(scannedSongs: List<Song>) {
         scope.launch {
@@ -104,7 +104,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
                 db.beginTransaction()
                 try {
                     for (song in scannedSongs) {
-                        // 查询现有收藏和播放统计
+                        // Query existing favorite flag and play statistics
                         var isFav = false
                         var playCount = 0
                         var lastPlayed = 0L
@@ -163,7 +163,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
     }
 
     /**
-     * 切换歌曲的“我喜欢”状态
+     * Toggles favorite status for the specified song URI.
      */
     fun toggleFavorite(uri: String) {
         scope.launch {
@@ -179,7 +179,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
     }
 
     /**
-     * 记录曲目播放计数与时间戳
+     * Increments play count and updates last played timestamp.
      */
     fun recordPlay(uri: String) {
         scope.launch {
@@ -196,7 +196,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
     }
 
     /**
-     * 编辑更新歌曲元数据标签
+     * Updates editable song metadata tags in the database.
      */
     fun updateSongTags(uri: String, title: String, artist: String, album: String, year: Int, genre: String) {
         scope.launch {
@@ -216,7 +216,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
     }
 
     /**
-     * 创建自定义歌单
+     * Creates a custom playlist.
      */
     fun createPlaylist(name: String) {
         scope.launch {
@@ -233,7 +233,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
     }
 
     /**
-     * 删除歌单
+     * Deletes a custom playlist and its associated playlist item records.
      */
     fun deletePlaylist(playlistId: Long) {
         scope.launch {
@@ -247,7 +247,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
     }
 
     /**
-     * 添加歌曲到歌单
+     * Adds a song to a playlist.
      */
     fun addSongToPlaylist(playlistId: Long, songUri: String) {
         scope.launch {
@@ -271,7 +271,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
     }
 
     /**
-     * 从歌单中移除歌曲
+     * Removes a song from a playlist.
      */
     fun removeSongFromPlaylist(playlistId: Long, songUri: String) {
         scope.launch {
@@ -288,7 +288,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
     }
 
     /**
-     * 获取指定歌单的所有歌曲列表
+     * Returns all songs belonging to the specified playlist.
      */
     suspend fun getPlaylistSongs(playlistId: Long): List<Song> = withContext(Dispatchers.IO) {
         val db = readableDatabase
