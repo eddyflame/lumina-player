@@ -96,6 +96,15 @@
     <string name="top_10">Top 10</string>
     <string name="top_50">Top 50</string>
     <string name="top_100">Top 100</string>
+
+    <!-- Visualizer -->
+    <string name="visualizer">Visualizer</string>
+    <string name="visualizer_aurora">Aurora Waves</string>
+    <string name="visualizer_halo">Neon Halo</string>
+    <string name="visualizer_crystal">Crystal Spectrum</string>
+    <string name="visualizer_strip">Light Strip</string>
+    <string name="visualizer_tap_hint">Tap to switch style</string>
+
     <string name="new_playlist">Create Playlist</string>
     <string name="playlist_name_hint">Playlist Name</string>
     <string name="add_to_playlist">Add to Playlist</string>

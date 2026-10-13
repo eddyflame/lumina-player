@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -96,6 +98,7 @@ import org.lumina.player.ui.components.EqualizerDialog
 import org.lumina.player.ui.components.LyricsView
 import org.lumina.player.ui.components.SleepTimerDialog
 import org.lumina.player.ui.components.TagEditorDialog
+import org.lumina.player.ui.components.VisualizerStyle
 import org.lumina.player.ui.theme.HiResGold
 import org.lumina.player.ui.theme.LuminaAccent
 import org.lumina.player.ui.theme.LuminaPrimary
@@ -104,9 +107,9 @@ import org.lumina.player.ui.theme.LuminaPrimary
  * Display modes for the central artistic viewport of the full player.
  */
 enum class PlayerArtViewMode {
-    COVER_CARD,
     VINYL_DISC,
-    LYRICS
+    LYRICS,
+    VISUALIZER
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -142,7 +145,8 @@ fun FullPlayerScreen(
     onCollapse: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var viewMode by remember { mutableStateOf(PlayerArtViewMode.COVER_CARD) }
+    var viewMode by remember { mutableStateOf(PlayerArtViewMode.VINYL_DISC) }
+    var visualizerStyle by remember { mutableStateOf(VisualizerStyle.AURORA_WAVES) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var showAudioInfoDialog by remember { mutableStateOf(false) }
     var showEqualizerDialog by remember { mutableStateOf(false) }
@@ -297,7 +301,7 @@ fun FullPlayerScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Middle artistic content area (Cover / Vinyl / Lyrics)
+                // Middle artistic content area (Vinyl / Lyrics / Visualizer)
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -310,73 +314,14 @@ fun FullPlayerScreen(
                         label = "art_mode_crossfade"
                     ) { mode ->
                         when (mode) {
-                            PlayerArtViewMode.COVER_CARD -> {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clickable {
-                                            viewMode = PlayerArtViewMode.VINYL_DISC
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    // Ambient glowing backdrop matching cover palette
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(0.72f)
-                                            .aspectRatio(1f)
-                                            .shadow(
-                                                elevation = 32.dp,
-                                                shape = RoundedCornerShape(28.dp),
-                                                spotColor = dominantColor,
-                                                ambientColor = dominantColor
-                                            )
-                                    )
-
-                                    // Main album cover card
-                                    Surface(
-                                        shape = RoundedCornerShape(24.dp),
-                                        shadowElevation = 14.dp,
-                                        modifier = Modifier
-                                            .fillMaxWidth(0.76f)
-                                            .aspectRatio(1f)
-                                    ) {
-                                        if (artwork != null) {
-                                            Image(
-                                                bitmap = artwork.asImageBitmap(),
-                                                contentDescription = null,
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.fillMaxSize()
-                                            )
-                                        } else {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .background(
-                                                        Brush.linearGradient(
-                                                            listOf(
-                                                                MaterialTheme.colorScheme.surfaceVariant,
-                                                                MaterialTheme.colorScheme.surface
-                                                            )
-                                                        )
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.MusicNote,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                                    modifier = Modifier.size(72.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
                             PlayerArtViewMode.VINYL_DISC -> {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .clickable {
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
                                             viewMode = PlayerArtViewMode.LYRICS
                                         },
                                     contentAlignment = Alignment.Center
@@ -398,7 +343,7 @@ fun FullPlayerScreen(
                                             val center = Offset(size.width / 2, size.height / 2)
                                             val radius = size.width / 2
 
-                                            // Vinyl base plate
+                                             // Vinyl base plate
                                             drawCircle(color = Color(0xFF0F1115), radius = radius)
 
                                             // Concentric sound groove lines
@@ -479,8 +424,11 @@ fun FullPlayerScreen(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .clickable {
-                                            viewMode = PlayerArtViewMode.COVER_CARD
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            viewMode = PlayerArtViewMode.VISUALIZER
                                         }
                                 ) {
                                     LyricsView(
@@ -493,11 +441,33 @@ fun FullPlayerScreen(
                                     )
                                 }
                             }
+                            PlayerArtViewMode.VISUALIZER -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AudioVisualizer(
+                                        spectrumData = visualizerSpectrum,
+                                        isPlaying = isPlaying,
+                                        style = visualizerStyle,
+                                        primaryColor = dominantColor.takeIf { it != LuminaPrimary } ?: MaterialTheme.colorScheme.primary,
+                                        accentColor = LuminaAccent,
+                                        onCycleStyle = {
+                                            val styles = VisualizerStyle.entries
+                                            val nextIdx = (visualizerStyle.ordinal + 1) % styles.size
+                                            visualizerStyle = styles[nextIdx]
+                                        },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                            }
                         }
                     }
                 }
 
-                // Subtitle mode switcher pill (Cover / Vinyl / Lyrics)
+                // Subtitle mode switcher pill (Vinyl / Lyrics / Visualizer)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -515,17 +485,6 @@ fun FullPlayerScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            IconButton(
-                                onClick = { viewMode = PlayerArtViewMode.COVER_CARD },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Image,
-                                    contentDescription = "Cover",
-                                    tint = if (viewMode == PlayerArtViewMode.COVER_CARD) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
                             IconButton(
                                 onClick = { viewMode = PlayerArtViewMode.VINYL_DISC },
                                 modifier = Modifier.size(28.dp)
@@ -545,6 +504,17 @@ fun FullPlayerScreen(
                                     imageVector = Icons.Default.Lyrics,
                                     contentDescription = "Lyrics",
                                     tint = if (viewMode == PlayerArtViewMode.LYRICS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewMode = PlayerArtViewMode.VISUALIZER },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.GraphicEq,
+                                    contentDescription = stringResource(R.string.visualizer),
+                                    tint = if (viewMode == PlayerArtViewMode.VISUALIZER) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -587,19 +557,7 @@ fun FullPlayerScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Real-time audio spectrum rhythm visualizer (synchronized with live FFT playback)
-                AudioVisualizer(
-                    spectrumData = visualizerSpectrum,
-                    isPlaying = isPlaying,
-                    modifier = Modifier.fillMaxWidth(),
-                    barCount = 24,
-                    primaryColor = dominantColor.takeIf { it != LuminaPrimary } ?: MaterialTheme.colorScheme.primary,
-                    accentColor = LuminaAccent
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Playback progress slider and time indicator
                 Column(modifier = Modifier.fillMaxWidth()) {

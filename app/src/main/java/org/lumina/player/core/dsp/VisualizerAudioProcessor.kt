@@ -258,14 +258,16 @@ class VisualizerAudioProcessor(
 
             // Frequency weighting curve: compensate for high-frequency natural roll-off
             val freqWeight = 1.0f + (b.toFloat() / barCount) * 1.8f
-            val normalized = (avgMag * freqWeight * 0.12f).coerceIn(0.0f, 1.0f)
+            val rawNormalized = (avgMag * freqWeight * 0.12f).coerceIn(0.0f, 1.0f)
+            // Perceptual logarithmic power curve to mimic human auditory loudness
+            val normalized = Math.pow(rawNormalized.toDouble(), 0.75).toFloat()
 
-            // Dynamic attack (instant response) & decay (smooth falloff)
+            // Smooth dynamic attack (gradual organic rise) & decay (graceful liquid falloff)
             val current = smoothedBars[b]
             val smoothed = if (normalized > current) {
-                normalized // Instant attack
+                current + (normalized - current) * 0.42f // Smooth organic attack
             } else {
-                current * 0.82f // Smooth exponential decay
+                current * 0.89f // Graceful exponential decay
             }
             smoothedBars[b] = smoothed
             currentBars[b] = smoothed.coerceIn(0.04f, 1.0f)
@@ -309,7 +311,7 @@ class VisualizerAudioProcessor(
                     var anyActive = false
                     val decayed = FloatArray(barCount)
                     for (i in 0 until barCount) {
-                        smoothedBars[i] = (smoothedBars[i] * 0.75f).coerceAtLeast(0.0f)
+                        smoothedBars[i] = (smoothedBars[i] * 0.85f).coerceAtLeast(0.0f)
                         decayed[i] = smoothedBars[i].coerceAtLeast(0.04f)
                         if (smoothedBars[i] > 0.05f) anyActive = true
                     }

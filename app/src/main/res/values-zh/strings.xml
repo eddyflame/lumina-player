@@ -96,6 +96,15 @@
     <string name="top_10">Top 10</string>
     <string name="top_50">Top 50</string>
     <string name="top_100">Top 100</string>
+
+    <!-- 音乐律动 -->
+    <string name="visualizer">音乐律动</string>
+    <string name="visualizer_aurora">流体极光</string>
+    <string name="visualizer_halo">环形呼吸</string>
+    <string name="visualizer_crystal">晶体频谱</string>
+    <string name="visualizer_strip">灵动灯带</string>
+    <string name="visualizer_tap_hint">轻触切换律动动效</string>
+
     <string name="new_playlist">新建歌单</string>
     <string name="playlist_name_hint">歌单名称</string>
     <string name="add_to_playlist">添加到歌单</string>

@@ -91,6 +91,10 @@ Lumina Player is engineered to support the widest possible spectrum of local aud
 * **Zero-Strength HAL Passthrough**: Effects (BassBoost, Virtualizer, Equalizer) are only activated in AudioFlinger when non-zero gain is requested, preventing HAL volume intercept collisions on cold start while retaining ~60ms smooth step interpolation during slider adjustments.
 * **Sleep Timer with Soft Fade-Out**: In the last 10 seconds of countdown, master volume gently interpolates down to zero before pausing playback, ensuring comfortable transitions.
 * **Playback Mode & State Persistence**: Seamlessly restores play mode (repeat/shuffle), track index, and position on app restart with muted cold-start preroll.
+* **High-Performance Multi-Style FFT Rhythm Visualizer**:
+  * Real-time 24-band spectrum extraction with exponential moving average (EMA) low-pass damping (`attack = 0.42`, `decay = 0.89`) and human auditory power-curve loudness scaling (`pow(magnitude, 0.75)`), completely eliminating high-frequency jitter while preserving fluid music reactivity.
+  * 4 signature animation styles: **Fluid Aurora Waves** (multi-layer continuous Bezier gradient curves), **Neon Halo** (360-degree pulsating ambient sound ring), **Crystal Spectrum** (symmetrical pillars with peak-hold beads), and **Reactive Light Strip** (mirrored smart ambient LED tube).
+  * Promoted to a 1st-class central stage view mode in `FullPlayerScreen` (`VINYL_DISC` ⇋ `LYRICS` ⇋ `VISUALIZER`) with tap-to-cycle style switching and zero rectangular click indications.
 
 ### 4.3 Zero-Reflection Reactive Persistence & Playlist Management (`MusicDatabase`)
 * Avoids KSP annotation-processor brittleness across rapid Kotlin 2.x and AGP upgrades.
