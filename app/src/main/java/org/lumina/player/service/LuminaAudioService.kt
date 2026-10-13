@@ -55,19 +55,22 @@ class LuminaAudioService : MediaSessionService() {
             .setAudioAttributes(audioAttributes, true) // true = handle audio focus automatically
             .setHandleAudioBecomingNoisy(true) // auto-pause on headphone unplug
             .setWakeMode(C.WAKE_MODE_LOCAL)
+            .setSeekParameters(androidx.media3.exoplayer.SeekParameters.EXACT)
             .build()
 
-        // 绑定系统音频会话以支持均衡器
+        // 绑定系统音频会话以支持均衡器 (仅当 AudioSessionId 发生变化时附加音效，杜绝切歌或 seek 频繁重建音效产生爆音/破音)
         player.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY) {
-                    val sessionId = player.audioSessionId
-                    if (sessionId != C.AUDIO_SESSION_ID_UNSET) {
-                        dspController.attachAudioSession(sessionId)
-                    }
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                if (audioSessionId != C.AUDIO_SESSION_ID_UNSET && audioSessionId != 0) {
+                    dspController.attachAudioSession(audioSessionId)
                 }
             }
         })
+
+        val initialSessionId = player.audioSessionId
+        if (initialSessionId != C.AUDIO_SESSION_ID_UNSET && initialSessionId != 0) {
+            dspController.attachAudioSession(initialSessionId)
+        }
 
         // 创建前台服务通知渠道 (Android 8.0+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

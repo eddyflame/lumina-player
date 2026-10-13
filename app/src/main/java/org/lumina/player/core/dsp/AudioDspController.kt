@@ -29,14 +29,18 @@ class AudioDspController {
     private var bassBoostStrength: Short = 0
     private var virtualizerStrength: Short = 0
     private var currentBandLevels = mutableListOf<Short>()
+    private var currentAudioSessionId: Int = 0
 
     /**
      * 当 ExoPlayer 的 AudioSessionId 发生变化或初始化时附加音效
+     * 防止在同一个 SessionId 上重复释放和重建硬件音效（避免切歌和拖动进度条时的爆音破音）
      */
+    @Synchronized
     fun attachAudioSession(audioSessionId: Int) {
-        if (audioSessionId == 0) return
+        if (audioSessionId == 0 || audioSessionId == currentAudioSessionId) return
+        currentAudioSessionId = audioSessionId
 
-        release()
+        releaseInternal()
 
         runCatching {
             equalizer = Equalizer(0, audioSessionId).apply {
@@ -128,14 +132,18 @@ class AudioDspController {
         }
     }
 
+    private fun releaseInternal() {
+        runCatching { equalizer?.release() }
+        equalizer = null
+        runCatching { bassBoost?.release() }
+        bassBoost = null
+        runCatching { virtualizer?.release() }
+        virtualizer = null
+    }
+
+    @Synchronized
     fun release() {
-        runCatching {
-            equalizer?.release()
-            equalizer = null
-            bassBoost?.release()
-            bassBoost = null
-            virtualizer?.release()
-            virtualizer = null
-        }
+        currentAudioSessionId = 0
+        releaseInternal()
     }
 }

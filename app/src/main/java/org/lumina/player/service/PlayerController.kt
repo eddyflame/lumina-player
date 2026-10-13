@@ -128,12 +128,17 @@ class PlayerController(
 
     private fun bindAudioService() {
         val intent = Intent(context, LuminaAudioService::class.java)
-        context.startService(intent)
-        context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-        isBound = true
+        runCatching {
+            context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+            isBound = true
+        }
     }
 
     fun playSong(song: Song, newQueue: List<Song> = emptyList()) {
+        val intent = Intent(context, LuminaAudioService::class.java)
+        runCatching {
+            androidx.core.content.ContextCompat.startForegroundService(context, intent)
+        }
         if (newQueue.isNotEmpty()) {
             _queue.value = newQueue
             _queueIndex.value = newQueue.indexOfFirst { it.uri == song.uri }.coerceAtLeast(0)
@@ -209,8 +214,11 @@ class PlayerController(
     }
 
     fun seekTo(positionMs: Long) {
-        _currentPositionMs.value = positionMs
-        service?.player?.seekTo(positionMs)
+        val player = service?.player ?: return
+        val duration = _durationMs.value
+        val safePosition = if (duration > 0) positionMs.coerceIn(0L, duration) else positionMs.coerceAtLeast(0L)
+        _currentPositionMs.value = safePosition
+        player.seekTo(safePosition)
     }
 
     fun skipNext() {
