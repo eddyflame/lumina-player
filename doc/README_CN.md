@@ -2,9 +2,11 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Android-0284C7?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
+  <img src="https://img.shields.io/badge/版本-0.6.1-blueviolet?style=for-the-badge" alt="版本 0.6.1" />
   <img src="https://img.shields.io/badge/Kotlin-2.2.20-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2" />
   <img src="https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Material 3" />
   <img src="https://img.shields.io/badge/Media3-ExoPlayer_1.5-emerald?style=for-the-badge" alt="AndroidX Media3" />
+  <img src="https://img.shields.io/badge/CI-持续集成-success?style=for-the-badge&logo=githubactions&logoColor=white" alt="CI" />
   <img src="https://img.shields.io/badge/隐私-100%25_纯离线-059669?style=for-the-badge" alt="纯离线" />
   <img src="https://img.shields.io/badge/License-GPL_v3.0-blue?style=for-the-badge" alt="GPLv3 许可" />
 </p>
@@ -130,6 +132,16 @@ cd lumina-player
 
 编译生成的 Release 安装包位于：
 `app/build/outputs/apk/release/lumina-player.apk`
+
+---
+
+## 🤝 参与贡献与社区
+
+我们热烈欢迎广大的 Android 开发者、UI 设计师与音频发烧友参与 Lumina Player 的共建！
+- 请查阅 [CONTRIBUTING.md](../CONTRIBUTING.md) 了解代码风格、分支策略与单元测试要求；
+- 请查阅 [ARCHITECTURE.md](ARCHITECTURE.md) 深入了解音频引擎、DSP 架构与状态流设计；
+- 请遵守我们的 [行为准则 (Code of Conduct)](../CODE_OF_CONDUCT.md)；
+- 隐私声明与漏洞报告指引详见 [SECURITY.md](../SECURITY.md)。
 
 ---
 

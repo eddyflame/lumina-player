@@ -2,9 +2,11 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Android-0284C7?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
+  <img src="https://img.shields.io/badge/Version-0.6.1-blueviolet?style=for-the-badge" alt="Version 0.6.1" />
   <img src="https://img.shields.io/badge/Kotlin-2.2.20-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2" />
   <img src="https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Material 3" />
   <img src="https://img.shields.io/badge/Media3-ExoPlayer_1.5-emerald?style=for-the-badge" alt="AndroidX Media3" />
+  <img src="https://img.shields.io/badge/CI-Automated-success?style=for-the-badge&logo=githubactions&logoColor=white" alt="CI" />
   <img src="https://img.shields.io/badge/Privacy-100%25_Offline-059669?style=for-the-badge" alt="Pure Offline" />
   <img src="https://img.shields.io/badge/License-GPL_v3.0-blue?style=for-the-badge" alt="License GPLv3" />
 </p>
@@ -130,6 +132,16 @@ cd lumina-player
 
 The compiled release APK will be located at:
 `app/build/outputs/apk/release/lumina-player.apk`
+
+---
+
+## 🤝 Contributing & Community
+
+We welcome contributions from developers, designers, and audiophiles!
+- Review [CONTRIBUTING.md](CONTRIBUTING.md) for build steps, branch conventions, and testing requirements.
+- Check [ARCHITECTURE.md](doc/ARCHITECTURE.md) to understand the codebase and audio engine architecture.
+- Please adhere to our [Code of Conduct](CODE_OF_CONDUCT.md).
+- Security policy and vulnerability reports are outlined in [SECURITY.md](SECURITY.md).
 
 ---
 

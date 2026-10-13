@@ -1,0 +1,57 @@
+name: Bug Report
+description: Report a defect or playback issue to help improve Lumina Player
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please search existing issues first to avoid duplicates.
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of the bug.
+      placeholder: Describe what happened...
+    validations:
+      required: true
+  - type: input
+    id: device-info
+    attributes:
+      label: Device & Android Version
+      description: Device manufacturer, model, and Android OS version.
+      placeholder: e.g., Google Pixel 8 Pro - Android 15 (API 35)
+    validations:
+      required: true
+  - type: input
+    id: audio-format
+    attributes:
+      label: Audio Format & File Specs
+      description: The format, bit depth, and sample rate of the affected audio file (if applicable).
+      placeholder: e.g., FLAC 24-bit/96kHz, CUE + APE, MP3 320kbps
+    validations:
+      required: false
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed step-by-step instructions to reproduce the bug.
+      placeholder: |
+        1. Open Lumina Player
+        2. Play track '...'
+        3. Open Equalizer / Fullscreen Player
+        4. Observe behavior...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: logs-screenshots
+    attributes:
+      label: Relevant Logs or Screenshots
+      description: Attach logcat output, stacktraces, or screenshots/screen recordings.

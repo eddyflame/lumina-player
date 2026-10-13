@@ -63,3 +63,16 @@ google-services.json
 # OS specific
 .DS_Store
 Thumbs.db
+
+# VS Code & Modern Editors
+.vscode/
+*.code-workspace
+.antigravity/
+
+# Archive and temporary files
+*.tar.gz
+*.zip
+*.7z
+*.swp
+*~
+

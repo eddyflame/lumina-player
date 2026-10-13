@@ -120,6 +120,11 @@ Lumina Player is engineered to support the widest possible spectrum of local aud
 
 * **Gradle**: Gradle 9.6.0 with Kotlin DSL (`build.gradle.kts`).
 * **Version Catalog**: Centralized dependency management via `gradle/libs.versions.toml`.
-* **GitHub Actions**:
-  * `ci.yml`: Executes `./gradlew test` and `./gradlew assembleDebug` on every push and pull request.
-  * `release.yml`: Triggers on git tags `v*`, signs with release keystore, and automatically publishes `lumina-player.apk` to GitHub Releases.
+* **GitHub Actions Workflows**:
+  * `ci.yml`: Triggers on push and pull requests targeting `main` and `develop`. Features build concurrency cancellation, executes `./gradlew testDebugUnitTest`, uploads test results as artifacts on failure or completion, builds debug APK via `./gradlew assembleDebug`, and publishes the debug APK as a downloadable artifact.
+  * `release.yml`: Triggers on git tags `v*` and manual `workflow_dispatch`. Decodes base64 release keystore if provided (falls back to debug signature safely), compiles release APK, computes SHA-256 checksum, automatically publishes GitHub Releases with release notes and assets, and archives the build artifacts.
+* **Open Source Standards & Community Health**:
+  * Enforces LF line endings and binary protections via `.gitattributes`.
+  * Provides structured GitHub Issue Forms (`bug_report.yml`, `feature_request.yml`) and Pull Request template (`PULL_REQUEST_TEMPLATE.md`).
+  * Establishes formal contributor guidance (`CONTRIBUTING.md`), privacy & security declarations (`SECURITY.md`), and Contributor Covenant (`CODE_OF_CONDUCT.md`).
+
