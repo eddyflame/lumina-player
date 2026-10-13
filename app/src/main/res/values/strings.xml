@@ -85,9 +85,17 @@
     <string name="timer_active">Timer active: %s remaining</string>
 
     <!-- Playlists -->
+    <string name="all_songs">All Songs</string>
     <string name="favorites">Favorites</string>
     <string name="recent_played">Recently Played</string>
     <string name="most_played">Most Played</string>
+    <string name="play_count_times">%d plays</string>
+    <string name="total_play_count">%d plays total</string>
+    <string name="reset_play_count">Reset Play Count</string>
+    <string name="confirm_reset_play_count">Are you sure you want to reset the play count for all songs in this playlist to 0? This action cannot be undone.</string>
+    <string name="top_10">Top 10</string>
+    <string name="top_50">Top 50</string>
+    <string name="top_100">Top 100</string>
     <string name="new_playlist">Create Playlist</string>
     <string name="playlist_name_hint">Playlist Name</string>
     <string name="add_to_playlist">Add to Playlist</string>

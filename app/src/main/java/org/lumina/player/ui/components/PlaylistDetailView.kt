@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
@@ -48,6 +49,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -61,6 +64,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -87,6 +91,8 @@ fun PlaylistDetailView(
     currentSong: Song?,
     isCustomPlaylist: Boolean = false,
     isFavorites: Boolean = false,
+    isMostPlayed: Boolean = false,
+    isAllSongs: Boolean = false,
     customPlaylistId: Long? = null,
     availableLibrarySongs: List<Song> = emptyList(),
     onBack: () -> Unit,
@@ -102,12 +108,22 @@ fun PlaylistDetailView(
     onRemoveSongsFromFavorites: (List<String>) -> Unit = {},
     onRenamePlaylist: (Long, String) -> Unit = { _, _ -> },
     onDeletePlaylist: (Long) -> Unit = {},
+    onResetPlayCount: (List<String>) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val canAddSongs = (isCustomPlaylist && customPlaylistId != null) || isFavorites
     val canRemoveSongs = (isCustomPlaylist && customPlaylistId != null) || isFavorites
     val canBatchManage = canRemoveSongs
     val canRenameOrDelete = isCustomPlaylist && customPlaylistId != null
+
+    var mostPlayedLimit by remember { mutableIntStateOf(50) }
+    var showResetPlayCountDialog by remember { mutableStateOf(false) }
+
+    val displayedSongs = remember(songs, isMostPlayed, mostPlayedLimit) {
+        if (isMostPlayed) songs.take(mostPlayedLimit) else songs
+    }
+
+    val showMoreMenu = canBatchManage || canRenameOrDelete || displayedSongs.isNotEmpty()
 
     var showAddSongsSheet by remember { mutableStateOf(false) }
     var isBatchMode by remember { mutableStateOf(false) }
@@ -128,8 +144,9 @@ fun PlaylistDetailView(
         }
     }
 
-    val totalDurationMs = remember(songs) { songs.sumOf { it.durationMs } }
+    val totalDurationMs = remember(displayedSongs) { displayedSongs.sumOf { it.durationMs } }
     val totalMinutes = totalDurationMs / 1000 / 60
+    val totalPlays = remember(displayedSongs) { displayedSongs.sumOf { it.playCount } }
 
     Column(
         modifier = modifier
@@ -167,14 +184,14 @@ fun PlaylistDetailView(
                             .padding(horizontal = 8.dp)
                     )
                     TextButton(onClick = {
-                        selectedUris = if (selectedUris.size == songs.size) {
+                        selectedUris = if (selectedUris.size == displayedSongs.size) {
                             emptySet()
                         } else {
-                            songs.map { it.uri }.toSet()
+                            displayedSongs.map { it.uri }.toSet()
                         }
                     }) {
                         Text(
-                            text = if (selectedUris.size == songs.size) {
+                            text = if (selectedUris.size == displayedSongs.size) {
                                 stringResource(R.string.deselect_all)
                             } else {
                                 stringResource(R.string.select_all)
@@ -228,7 +245,7 @@ fun PlaylistDetailView(
                             )
                         }
                     }
-                    if (canBatchManage || canRenameOrDelete) {
+                    if (showMoreMenu) {
                         Box {
                             IconButton(onClick = { showHeaderMenu = true }) {
                                 Icon(
@@ -269,6 +286,19 @@ fun PlaylistDetailView(
                                             showHeaderMenu = false
                                             isBatchMode = true
                                             selectedUris = emptySet()
+                                        }
+                                    )
+                                }
+                                if (displayedSongs.isNotEmpty()) {
+                                    if (canRenameOrDelete || canAddSongs || canBatchManage) {
+                                        HorizontalDivider()
+                                    }
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.reset_play_count)) },
+                                        leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
+                                        onClick = {
+                                            showHeaderMenu = false
+                                            showResetPlayCountDialog = true
                                         }
                                     )
                                 }
@@ -380,8 +410,10 @@ fun PlaylistDetailView(
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
+                                        val countAndDuration = "${displayedSongs.size} 首歌曲 · 约 $totalMinutes 分钟"
+                                        val headerSubtitle = if (totalPlays > 0) "$countAndDuration · 累计 $totalPlays 次播放" else countAndDuration
                                         Text(
-                                            text = "${songs.size} 首歌曲 · 约 $totalMinutes 分钟",
+                                            text = headerSubtitle,
                                             style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -396,8 +428,8 @@ fun PlaylistDetailView(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Button(
-                                        onClick = { if (songs.isNotEmpty()) onPlayAll(songs) },
-                                        enabled = songs.isNotEmpty(),
+                                        onClick = { if (displayedSongs.isNotEmpty()) onPlayAll(displayedSongs) },
+                                        enabled = displayedSongs.isNotEmpty(),
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
@@ -407,8 +439,8 @@ fun PlaylistDetailView(
                                     }
 
                                     FilledTonalButton(
-                                        onClick = { if (songs.isNotEmpty()) onShuffleAll(songs) },
-                                        enabled = songs.isNotEmpty(),
+                                        onClick = { if (displayedSongs.isNotEmpty()) onShuffleAll(displayedSongs) },
+                                        enabled = displayedSongs.isNotEmpty(),
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
@@ -434,8 +466,39 @@ fun PlaylistDetailView(
                     }
                 }
 
+                // Filter chips for Most Played playlist (Top 10 / Top 50 / Top 100)
+                if (isMostPlayed) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            listOf(10, 50, 100).forEach { limit ->
+                                val selected = mostPlayedLimit == limit
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = { mostPlayedLimit = limit },
+                                    label = {
+                                        Text(
+                                            text = "Top $limit",
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Empty state
-                if (songs.isEmpty()) {
+                if (displayedSongs.isEmpty()) {
                     item {
                         Column(
                             modifier = Modifier
@@ -478,7 +541,7 @@ fun PlaylistDetailView(
                     }
                 } else {
                     // Song Items in this playlist
-                    itemsIndexed(songs, key = { _, song -> song.uri }) { index, song ->
+                    itemsIndexed(displayedSongs, key = { _, song -> song.uri }) { index, song ->
                         val isCurrent = song.uri == currentSong?.uri
                         val isSelected = selectedUris.contains(song.uri)
 
@@ -498,7 +561,7 @@ fun PlaylistDetailView(
                                             selectedUris + song.uri
                                         }
                                     } else {
-                                        onSongClick(song, songs)
+                                        onSongClick(song, displayedSongs)
                                     }
                                 }
                         ) {
@@ -586,11 +649,26 @@ fun PlaylistDetailView(
 
                                 Spacer(modifier = Modifier.width(8.dp))
 
-                                Text(
-                                    text = song.durationFormatted,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                // Play count and duration aligned to right
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.play_count_times, song.playCount),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (song.playCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        fontWeight = if (song.playCount > 0) FontWeight.SemiBold else FontWeight.Normal,
+                                        fontSize = 11.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = song.durationFormatted,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        fontSize = 11.sp
+                                    )
+                                }
 
                                 // If removable playlist and not in batch mode, provide quick delete button
                                 if (canRemoveSongs && !isBatchMode) {
@@ -654,7 +732,7 @@ fun PlaylistDetailView(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilledTonalButton(
                                 onClick = {
-                                    val selectedSongs = songs.filter { selectedUris.contains(it.uri) }
+                                    val selectedSongs = displayedSongs.filter { selectedUris.contains(it.uri) }
                                     if (selectedSongs.isNotEmpty()) {
                                         onPlayAll(selectedSongs)
                                     }
@@ -821,6 +899,39 @@ fun PlaylistDetailView(
             },
             dismissButton = {
                 TextButton(onClick = { showRemoveBatchConfirmDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // Reset Play Count Confirmation Dialog
+    if (showResetPlayCountDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetPlayCountDialog = false },
+            title = {
+                Text(
+                    text = stringResource(R.string.reset_play_count),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(stringResource(R.string.confirm_reset_play_count))
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showResetPlayCountDialog = false
+                        onResetPlayCount(displayedSongs.map { it.uri })
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetPlayCountDialog = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             }

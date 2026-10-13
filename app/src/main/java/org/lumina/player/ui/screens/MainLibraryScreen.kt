@@ -102,6 +102,8 @@ data class DetailViewState(
     val subtitle: String? = null,
     val isCustomPlaylist: Boolean = false,
     val isFavorites: Boolean = false,
+    val isMostPlayed: Boolean = false,
+    val isAllSongs: Boolean = false,
     val customPlaylistId: Long? = null,
     val songs: List<Song> = emptyList()
 )
@@ -143,6 +145,7 @@ fun MainLibraryScreen(
     onRemoveSongsFromPlaylist: (Long, List<String>) -> Unit = { _, _ -> },
     onToggleFavorite: (String) -> Unit = {},
     onSetFavorites: (List<String>, Boolean) -> Unit = { _, _ -> },
+    onResetPlayCount: (List<String>) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -183,6 +186,7 @@ fun MainLibraryScreen(
         stringResource(R.string.tab_playlists)
     )
 
+    val allSongsTitle = stringResource(R.string.all_songs)
     val favoritesTitle = stringResource(R.string.favorites)
     val recentTitle = stringResource(R.string.recent_played)
     val mostPlayedTitle = stringResource(R.string.most_played)
@@ -322,12 +326,16 @@ fun MainLibraryScreen(
                 val detail = activeDetailState!!
                 val favTitle = stringResource(R.string.favorites)
                 val isFav = detail.isFavorites || detail.title == favTitle
+                val isMostPlayed = detail.isMostPlayed || detail.title == mostPlayedTitle
+                val isAllSongs = detail.isAllSongs || detail.title == allSongsTitle
+                val isRecent = detail.title == stringResource(R.string.recent_played)
                 // Recompute songs for smart playlists reactively
                 val detailSongs = when {
                     detail.isCustomPlaylist -> detail.songs
                     isFav -> favorites
-                    detail.title == stringResource(R.string.recent_played) -> recentlyPlayed
-                    detail.title == stringResource(R.string.most_played) -> mostPlayed
+                    isRecent -> recentlyPlayed
+                    isMostPlayed -> mostPlayed
+                    isAllSongs -> songs
                     else -> detail.songs
                 }
 
@@ -338,6 +346,8 @@ fun MainLibraryScreen(
                     currentSong = currentSong,
                     isCustomPlaylist = detail.isCustomPlaylist,
                     isFavorites = isFav,
+                    isMostPlayed = isMostPlayed,
+                    isAllSongs = isAllSongs,
                     customPlaylistId = detail.customPlaylistId,
                     availableLibrarySongs = songs,
                     onBack = { activeDetailState = null },
@@ -399,7 +409,8 @@ fun MainLibraryScreen(
                             onDeletePlaylist(toDel)
                         }
                         activeDetailState = null
-                    }
+                    },
+                    onResetPlayCount = onResetPlayCount
                 )
             } else {
                 when (selectedTab) {
@@ -449,9 +460,17 @@ fun MainLibraryScreen(
                     )
                     4 -> PlaylistsTab(
                         playlists = playlists,
+                        allSongsCount = songs.size,
                         favoritesCount = favorites.size,
                         recentCount = recentlyPlayed.size,
-                        mostPlayedCount = mostPlayed.size,
+                        mostPlayedCount = minOf(mostPlayed.size, 50),
+                        onOpenAllSongs = {
+                            activeDetailState = DetailViewState(
+                                title = allSongsTitle,
+                                isAllSongs = true,
+                                songs = songs
+                            )
+                        },
                         onOpenFavorites = {
                             activeDetailState = DetailViewState(
                                 title = favoritesTitle,
@@ -468,8 +487,12 @@ fun MainLibraryScreen(
                         onOpenMostPlayed = {
                             activeDetailState = DetailViewState(
                                 title = mostPlayedTitle,
+                                isMostPlayed = true,
                                 songs = mostPlayed
                             )
+                        },
+                        onPlayAllSongs = {
+                            if (songs.isNotEmpty()) onSongClick(songs.first(), songs)
                         },
                         onPlayFavorites = {
                             if (favorites.isNotEmpty()) onSongClick(favorites.first(), favorites)
@@ -894,12 +917,15 @@ private fun FoldersTab(
 @Composable
 private fun PlaylistsTab(
     playlists: List<Playlist>,
+    allSongsCount: Int,
     favoritesCount: Int,
     recentCount: Int,
     mostPlayedCount: Int,
+    onOpenAllSongs: () -> Unit,
     onOpenFavorites: () -> Unit,
     onOpenRecent: () -> Unit,
     onOpenMostPlayed: () -> Unit,
+    onPlayAllSongs: () -> Unit,
     onPlayFavorites: () -> Unit,
     onPlayRecent: () -> Unit,
     onPlayMostPlayed: () -> Unit,
@@ -917,6 +943,15 @@ private fun PlaylistsTab(
         // Smart playlist quick access section
         item {
             Column(modifier = Modifier.padding(16.dp)) {
+                SmartPlaylistCard(
+                    title = stringResource(R.string.all_songs),
+                    count = allSongsCount,
+                    icon = Icons.Default.Audiotrack,
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    onClick = onOpenAllSongs,
+                    onPlayClick = onPlayAllSongs
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 SmartPlaylistCard(
                     title = stringResource(R.string.favorites),
                     count = favoritesCount,

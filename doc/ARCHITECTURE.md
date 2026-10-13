@@ -96,8 +96,12 @@ Lumina Player is engineered to support the widest possible spectrum of local aud
 * Avoids KSP annotation-processor brittleness across rapid Kotlin 2.x and AGP upgrades.
 * Utilizes Android native `SQLiteOpenHelper` paired with Kotlin Coroutines (`Dispatchers.IO`) and reactive `StateFlow`.
 * Tracks song metadata, play counts, favorites, recent playback timestamps, playlists, and playlist ordering.
-* **Atomic Batch Operations**: `addSongsToPlaylist`, `removeSongsFromPlaylist`, and `setFavorites` execute in an explicit SQLite transaction block (`beginTransaction()` / `setTransactionSuccessful()`), ensuring zero partial mutations and batching StateFlow update notifications to a single emission.
-* **In-Place Playlist Mutation & Smart Favorites**: Supports real-time playlist renaming, deletion with safety verification, and dual-mode interactive playlist views (fast single-item operations & multi-select batch manipulation with library filtering) across both custom playlists and the default Favorites ("我喜欢的音乐") playlist.
+* **Atomic Batch Operations**: `addSongsToPlaylist`, `removeSongsFromPlaylist`, `setFavorites`, and `resetPlayCount` execute in explicit SQLite transaction blocks (`beginTransaction()` / `setTransactionSuccessful()`), ensuring zero partial mutations and batching StateFlow update notifications to a single emission.
+* **In-Place Playlist Mutation & Smart Playlists**:
+  * Supports real-time playlist renaming, deletion with safety verification, and dual-mode interactive playlist views (fast single-item operations & multi-select batch manipulation with library filtering) across custom playlists and system smart playlists.
+  * **All Songs Smart Playlist**: Pre-seeded quick access entry providing immediate library-wide inspection, shuffle, and playback controls.
+  * **Global Play Count & In-Playlist Statistics**: Tracks cumulative song play count persistently; displays song play count alongside track duration in playlist views, with one-tap batch play count reset for all songs within the active playlist.
+  * **Most Played Tiered Sub-Lists**: Configurable Top 10, Top 50 (default limit), and Top 100 filtering in the Most Played smart playlist to quickly inspect and play top listening favorites.
 
 ### 4.4 Lumina Visual Identity System
 * **Lumina Azure (`#0284C7`) & Music Cyan (`#38BDF8`)**: High-contrast, acoustic brand identity.

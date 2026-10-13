@@ -75,6 +75,7 @@ class MusicRepository(
     val mostPlayedFlow: Flow<List<Song>> = database.songsFlow.map { songs ->
         songs.filter { it.playCount > 0 }
             .sortedByDescending { it.playCount }
+            .take(100)
     }
 
     suspend fun rescan(filterShortAudio: Boolean) {
@@ -90,6 +91,7 @@ class MusicRepository(
     fun toggleFavorite(uri: String) = database.toggleFavorite(uri)
     fun setFavorites(uris: List<String>, isFavorite: Boolean) = database.setFavorites(uris, isFavorite)
     fun recordPlay(uri: String) = database.recordPlay(uri)
+    fun resetPlayCount(uris: List<String>) = database.resetPlayCount(uris)
     fun updateSongTags(uri: String, title: String, artist: String, album: String, year: Int, genre: String) =
         database.updateSongTags(uri, title, artist, album, year, genre)
 

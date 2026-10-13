@@ -255,6 +255,31 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
     }
 
     /**
+     * Resets play count and last played timestamp to zero for specified songs in an atomic transaction.
+     */
+    fun resetPlayCount(uris: List<String>) {
+        if (uris.isEmpty()) return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                val db = writableDatabase
+                db.beginTransaction()
+                try {
+                    for (uri in uris) {
+                        db.execSQL(
+                            "UPDATE $TABLE_SONGS SET $COL_PLAY_COUNT = 0, $COL_LAST_PLAYED = 0 WHERE $COL_URI = ?",
+                            arrayOf(uri)
+                        )
+                    }
+                    db.setTransactionSuccessful()
+                } finally {
+                    db.endTransaction()
+                }
+            }
+            refreshAll()
+        }
+    }
+
+    /**
      * Updates editable song metadata tags in the database.
      */
     fun updateSongTags(uri: String, title: String, artist: String, album: String, year: Int, genre: String) {
