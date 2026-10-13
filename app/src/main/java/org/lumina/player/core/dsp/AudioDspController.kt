@@ -5,6 +5,13 @@ package org.lumina.player.core.dsp
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.Virtualizer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * Equalizer frequency preset configuration.
@@ -17,6 +24,11 @@ data class EqPreset(
 
 /**
  * DSP audio effects engine controller (Equalizer, Bass Boost, Virtualizer).
+ *
+ * Prevents popping and distortion by:
+ * 1. Keeping hardware AudioEffect instances enabled during strength adjustments
+ *    (preventing AudioFlinger filter detachment / re-attachment DC-offset pops).
+ * 2. Smoothly interpolating large strength transitions over ~60ms.
  */
 @Suppress("DEPRECATION")
 class AudioDspController {
@@ -30,6 +42,26 @@ class AudioDspController {
     private var virtualizerStrength: Short = 0
     private var currentBandLevels = mutableListOf<Short>()
     private var currentAudioSessionId: Int = 0
+
+    // Callback when user alters settings so they can be persisted
+    var onPreferencesChanged: ((enabled: Boolean, bassBoost: Short, virtualizer: Short) -> Unit)? = null
+
+    // Smooth ramp coroutine infrastructure
+    private val rampScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var bassRampJob: Job? = null
+    private var virtualizerRampJob: Job? = null
+
+    // Current live strength being applied to the hardware effect
+    @Volatile private var liveBassStrength: Short = 0
+    @Volatile private var liveVirtualizerStrength: Short = 0
+
+    fun initSettings(enabled: Boolean, bassBoost: Short, virtualizer: Short) {
+        isEnabled = enabled
+        bassBoostStrength = bassBoost
+        virtualizerStrength = virtualizer
+        liveBassStrength = bassBoost
+        liveVirtualizerStrength = virtualizer
+    }
 
     /**
      * Attaches audio effects when ExoPlayer's AudioSessionId initializes or changes.
@@ -65,7 +97,8 @@ class AudioDspController {
                 if (strengthSupported) {
                     setStrength(bassBoostStrength)
                 }
-                enabled = isEnabled && bassBoostStrength > 0
+                liveBassStrength = bassBoostStrength
+                enabled = isEnabled
             }
         }
 
@@ -74,7 +107,8 @@ class AudioDspController {
                 if (strengthSupported) {
                     setStrength(virtualizerStrength)
                 }
-                enabled = isEnabled && virtualizerStrength > 0
+                liveVirtualizerStrength = virtualizerStrength
+                enabled = isEnabled
             }
         }
     }
@@ -82,8 +116,9 @@ class AudioDspController {
     fun setEnabled(enabled: Boolean) {
         isEnabled = enabled
         equalizer?.enabled = enabled && currentBandLevels.any { it != 0.toShort() }
-        bassBoost?.enabled = enabled && bassBoostStrength > 0
-        virtualizer?.enabled = enabled && virtualizerStrength > 0
+        bassBoost?.enabled = enabled
+        virtualizer?.enabled = enabled
+        onPreferencesChanged?.invoke(enabled, bassBoostStrength, virtualizerStrength)
     }
 
     fun isEnabled(): Boolean = isEnabled
@@ -113,21 +148,103 @@ class AudioDspController {
         }
     }
 
+    /**
+     * Sets bass boost strength with smooth ramping to prevent audible pops.
+     * Effect remains enabled (hardware passthrough when strength is 0) to prevent
+     * AudioFlinger filter disconnection pops.
+     */
     fun setBassBoost(strength: Short) {
-        bassBoostStrength = strength.coerceIn(0, 1000)
-        runCatching {
-            bassBoost?.setStrength(bassBoostStrength)
-            bassBoost?.enabled = isEnabled && bassBoostStrength > 0
+        val targetStrength = strength.coerceIn(0, 1000)
+        bassBoostStrength = targetStrength
+        onPreferencesChanged?.invoke(isEnabled, bassBoostStrength, virtualizerStrength)
+
+        val bb = bassBoost ?: return
+
+        if (!bb.enabled && isEnabled) {
+            runCatching { bb.enabled = true }
+        }
+
+        val currentLive = liveBassStrength.toInt()
+        val delta = Math.abs(targetStrength.toInt() - currentLive)
+
+        // Small changes can be applied directly without audible artifacts
+        if (delta < 80) {
+            bassRampJob?.cancel()
+            liveBassStrength = targetStrength
+            runCatching { bb.setStrength(targetStrength) }
+            return
+        }
+
+        // Large jump: smooth ramp over ~60ms to prevent pop
+        bassRampJob?.cancel()
+        bassRampJob = rampScope.launch {
+            val startStrength = liveBassStrength.toInt()
+            val endStrength = targetStrength.toInt()
+            val steps = 5
+            val stepDelayMs = 12L
+
+            for (step in 1..steps) {
+                if (!isActive) return@launch
+                val interpolated = startStrength + ((endStrength - startStrength) * step) / steps
+                val clampedStrength = interpolated.coerceIn(0, 1000).toShort()
+                liveBassStrength = clampedStrength
+                runCatching { bb.setStrength(clampedStrength) }
+                delay(stepDelayMs)
+            }
+
+            liveBassStrength = targetStrength
+            runCatching { bb.setStrength(targetStrength) }
         }
     }
 
     fun getBassBoost(): Short = bassBoostStrength
 
+    /**
+     * Sets virtualizer strength with smooth ramping to prevent audible pops.
+     * Effect remains enabled (hardware passthrough when strength is 0) to prevent
+     * AudioFlinger filter disconnection pops.
+     */
     fun setVirtualizer(strength: Short) {
-        virtualizerStrength = strength.coerceIn(0, 1000)
-        runCatching {
-            virtualizer?.setStrength(virtualizerStrength)
-            virtualizer?.enabled = isEnabled && virtualizerStrength > 0
+        val targetStrength = strength.coerceIn(0, 1000)
+        virtualizerStrength = targetStrength
+        onPreferencesChanged?.invoke(isEnabled, bassBoostStrength, virtualizerStrength)
+
+        val virt = virtualizer ?: return
+
+        if (!virt.enabled && isEnabled) {
+            runCatching { virt.enabled = true }
+        }
+
+        val currentLive = liveVirtualizerStrength.toInt()
+        val delta = Math.abs(targetStrength.toInt() - currentLive)
+
+        // Small changes can be applied directly without audible artifacts
+        if (delta < 80) {
+            virtualizerRampJob?.cancel()
+            liveVirtualizerStrength = targetStrength
+            runCatching { virt.setStrength(targetStrength) }
+            return
+        }
+
+        // Large jump: smooth ramp over ~60ms to prevent pop
+        virtualizerRampJob?.cancel()
+        virtualizerRampJob = rampScope.launch {
+            val startStrength = liveVirtualizerStrength.toInt()
+            val endStrength = targetStrength.toInt()
+            val steps = 5
+            val stepDelayMs = 12L
+
+            for (step in 1..steps) {
+                if (!isActive) return@launch
+                val interpolated = startStrength + ((endStrength - startStrength) * step) / steps
+                val clampedStrength = interpolated.coerceIn(0, 1000).toShort()
+                liveVirtualizerStrength = clampedStrength
+                runCatching { virt.setStrength(clampedStrength) }
+                delay(stepDelayMs)
+            }
+
+            liveVirtualizerStrength = targetStrength
+            runCatching { virt.setStrength(targetStrength) }
         }
     }
 
@@ -150,6 +267,8 @@ class AudioDspController {
 
     @Synchronized
     fun release() {
+        bassRampJob?.cancel()
+        virtualizerRampJob?.cancel()
         currentAudioSessionId = 0
         releaseInternal()
     }

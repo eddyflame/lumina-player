@@ -60,6 +60,22 @@ class LuminaAudioService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
 
+        // Restore DSP audio effect preferences
+        val audioPrefs = (application as? LuminaApp)?.audioPreferences
+        if (audioPrefs != null) {
+            val s = audioPrefs.settings.value
+            dspController.initSettings(
+                enabled = s.eqEnabled,
+                bassBoost = s.bassBoost.toShort(),
+                virtualizer = s.virtualizer.toShort()
+            )
+            dspController.onPreferencesChanged = { enabled, bass, virt ->
+                audioPrefs.setEqEnabled(enabled)
+                audioPrefs.setBassBoost(bass.toInt())
+                audioPrefs.setVirtualizer(virt.toInt())
+            }
+        }
+
         // Acquire CPU partial wake lock to prevent background audio interruption when screen is turned off
         val powerManager = getSystemService(PowerManager::class.java)
         wakeLock = powerManager?.newWakeLock(

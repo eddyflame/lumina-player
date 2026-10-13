@@ -19,13 +19,13 @@ class LuminaApp : Application() {
     lateinit var repository: MusicRepository
         private set
 
-    lateinit var playerController: PlayerController
-        private set
-
     lateinit var themePreferences: ThemePreferences
         private set
 
     lateinit var audioPreferences: AudioPreferences
+        private set
+
+    lateinit var playerController: PlayerController
         private set
 
     override fun onCreate() {
@@ -35,9 +35,9 @@ class LuminaApp : Application() {
         database = MusicDatabase(this)
         scanner = MediaStoreScanner(this)
         repository = MusicRepository(database, scanner)
-        playerController = PlayerController(this, repository)
         themePreferences = ThemePreferences(this)
         audioPreferences = AudioPreferences(this)
+        playerController = PlayerController(this, repository, audioPreferences)
     }
 
     companion object {

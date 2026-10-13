@@ -1,5 +1,6 @@
 package org.lumina.player.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
@@ -65,27 +67,41 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import org.lumina.player.R
 import org.lumina.player.core.model.Album
 import org.lumina.player.core.model.Artist
 import org.lumina.player.core.model.MusicFolder
 import org.lumina.player.core.model.Playlist
 import org.lumina.player.core.model.Song
+import org.lumina.player.ui.components.AddToPlaylistDialog
 import org.lumina.player.ui.components.MiniPlayer
+import org.lumina.player.ui.components.PlaylistDetailView
 import org.lumina.player.ui.theme.HiResGold
+import java.io.File
 
 enum class SortMode {
     TITLE, ARTIST, DATE, DURATION
 }
+
+data class DetailViewState(
+    val title: String,
+    val subtitle: String? = null,
+    val isCustomPlaylist: Boolean = false,
+    val customPlaylistId: Long? = null,
+    val songs: List<Song> = emptyList()
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,8 +132,14 @@ fun MainLibraryScreen(
     onCreatePlaylist: (String) -> Unit,
     onPlaylistClick: (Playlist) -> Unit = {},
     onDeletePlaylist: (Playlist) -> Unit = {},
+    onGetPlaylistSongs: suspend (Long) -> List<Song> = { emptyList() },
+    onAddSongToPlaylist: (Long, String) -> Unit = { _, _ -> },
+    onRemoveSongFromPlaylist: (Long, String) -> Unit = { _, _ -> },
+    onToggleFavorite: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val coroutineScope = rememberCoroutineScope()
+
     var selectedTab by remember { mutableIntStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
@@ -125,6 +147,10 @@ fun MainLibraryScreen(
     var showSortMenu by remember { mutableStateOf(false) }
     var showNewPlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
+
+    // Active detail view (for viewing songs inside playlists, albums, artists, folders)
+    var activeDetailState by remember { mutableStateOf<DetailViewState?>(null) }
+    var songForPlaylistSelection by remember { mutableStateOf<Song?>(null) }
 
     val filteredSongs = remember(songs, searchQuery, sortMode) {
         val filtered = if (searchQuery.isBlank()) songs else {
@@ -150,104 +176,112 @@ fun MainLibraryScreen(
         stringResource(R.string.tab_playlists)
     )
 
+    // Intercept back button when detail view is active
+    BackHandler(enabled = activeDetailState != null) {
+        activeDetailState = null
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
-                // Header title and global action bar
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (isSearchActive) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text(stringResource(R.string.search_hint)) },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            trailingIcon = {
-                                IconButton(onClick = {
-                                    searchQuery = ""
-                                    isSearchActive = false
-                                }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear")
+            // Only show default topBar when not in detail view
+            if (activeDetailState == null) {
+                Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
+                    // Header title and global action bar
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isSearchActive) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text(stringResource(R.string.search_hint)) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                trailingIcon = {
+                                    IconButton(onClick = {
+                                        searchQuery = ""
+                                        isSearchActive = false
+                                    }) {
+                                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                    }
                                 }
-                            }
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                            )
+                        } else {
+                            Text(
+                                text = stringResource(R.string.app_name),
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold
+                            )
 
-                        Row {
-                            IconButton(onClick = { isSearchActive = true }) {
-                                Icon(Icons.Default.Search, contentDescription = "Search")
-                            }
-                            IconButton(onClick = onOpenEqualizer) {
-                                Icon(Icons.Default.Tune, contentDescription = stringResource(R.string.equalizer))
-                            }
-                            Box {
-                                IconButton(onClick = { showSortMenu = true }) {
-                                    Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
+                            Row {
+                                IconButton(onClick = { isSearchActive = true }) {
+                                    Icon(Icons.Default.Search, contentDescription = "Search")
                                 }
-                                DropdownMenu(
-                                    expanded = showSortMenu,
-                                    onDismissRequest = { showSortMenu = false }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.sort_title)) },
-                                        onClick = {
-                                            sortMode = SortMode.TITLE
-                                            showSortMenu = false
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.sort_artist)) },
-                                        onClick = {
-                                            sortMode = SortMode.ARTIST
-                                            showSortMenu = false
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.sort_date)) },
-                                        onClick = {
-                                            sortMode = SortMode.DATE
-                                            showSortMenu = false
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.sort_duration)) },
-                                        onClick = {
-                                            sortMode = SortMode.DURATION
-                                            showSortMenu = false
-                                        }
-                                    )
+                                IconButton(onClick = onOpenEqualizer) {
+                                    Icon(Icons.Default.Tune, contentDescription = stringResource(R.string.equalizer))
                                 }
-                            }
-                            IconButton(onClick = onOpenSettings) {
-                                Icon(Icons.Default.Settings, contentDescription = "Settings")
+                                Box {
+                                    IconButton(onClick = { showSortMenu = true }) {
+                                        Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
+                                    }
+                                    DropdownMenu(
+                                        expanded = showSortMenu,
+                                        onDismissRequest = { showSortMenu = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.sort_title)) },
+                                            onClick = {
+                                                sortMode = SortMode.TITLE
+                                                showSortMenu = false
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.sort_artist)) },
+                                            onClick = {
+                                                sortMode = SortMode.ARTIST
+                                                showSortMenu = false
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.sort_date)) },
+                                            onClick = {
+                                                sortMode = SortMode.DATE
+                                                showSortMenu = false
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.sort_duration)) },
+                                            onClick = {
+                                                sortMode = SortMode.DURATION
+                                                showSortMenu = false
+                                            }
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = onOpenSettings) {
+                                    Icon(Icons.Default.Settings, contentDescription = "Settings")
+                                }
                             }
                         }
                     }
-                }
 
-                // Top category tab bar
-                PrimaryTabRow(
-                    selectedTabIndex = selectedTab,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
-                            text = { Text(title, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal) }
-                        )
+                    // Top category tab bar
+                    PrimaryTabRow(
+                        selectedTabIndex = selectedTab,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        tabs.forEachIndexed { index, title ->
+                            Tab(
+                                selected = selectedTab == index,
+                                onClick = { selectedTab = index },
+                                text = { Text(title, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal) }
+                            )
+                        }
                     }
                 }
             }
@@ -273,66 +307,151 @@ fun MainLibraryScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            when (selectedTab) {
-                0 -> SongsTab(
-                    songs = filteredSongs,
+            if (activeDetailState != null) {
+                val detail = activeDetailState!!
+                // Recompute songs for smart playlists reactively
+                val detailSongs = when {
+                    detail.isCustomPlaylist -> detail.songs
+                    detail.title == stringResource(R.string.favorites) -> favorites
+                    detail.title == stringResource(R.string.recent_played) -> recentlyPlayed
+                    detail.title == stringResource(R.string.most_played) -> mostPlayed
+                    else -> detail.songs
+                }
+
+                PlaylistDetailView(
+                    title = detail.title,
+                    subtitle = detail.subtitle,
+                    songs = detailSongs,
                     currentSong = currentSong,
-                    onSongClick = { song -> onSongClick(song, filteredSongs) },
-                    onShuffleAll = {
-                        if (filteredSongs.isNotEmpty()) {
-                            onShuffleAll(filteredSongs)
+                    isCustomPlaylist = detail.isCustomPlaylist,
+                    customPlaylistId = detail.customPlaylistId,
+                    availableLibrarySongs = songs,
+                    onBack = { activeDetailState = null },
+                    onSongClick = onSongClick,
+                    onPlayAll = { plSongs ->
+                        if (plSongs.isNotEmpty()) {
+                            onSongClick(plSongs.first(), plSongs)
                         }
-                    }
-                )
-                1 -> AlbumsTab(
-                    albums = albums,
-                    onAlbumClick = { album ->
-                        val albumSongs = songs.filter { it.album == album.title }
-                        if (albumSongs.isNotEmpty()) {
-                            onSongClick(albumSongs.first(), albumSongs)
-                        }
-                    }
-                )
-                2 -> ArtistsTab(
-                    artists = artists,
-                    onArtistClick = { artist ->
-                        val artistSongs = songs.filter { it.artist == artist.name }
-                        if (artistSongs.isNotEmpty()) {
-                            onSongClick(artistSongs.first(), artistSongs)
-                        }
-                    }
-                )
-                3 -> FoldersTab(
-                    folders = folders,
-                    onFolderClick = { folder ->
-                        val folderSongs = songs.filter { java.io.File(it.filePath).parent == folder.path }
-                        if (folderSongs.isNotEmpty()) {
-                            onSongClick(folderSongs.first(), folderSongs)
-                        }
-                    }
-                )
-                4 -> PlaylistsTab(
-                    playlists = playlists,
-                    favoritesCount = favorites.size,
-                    recentCount = recentlyPlayed.size,
-                    mostPlayedCount = mostPlayed.size,
-                    onOpenFavorites = {
-                        if (favorites.isNotEmpty()) onSongClick(favorites.first(), favorites)
                     },
-                    onOpenRecent = {
-                        if (recentlyPlayed.isNotEmpty()) onSongClick(recentlyPlayed.first(), recentlyPlayed)
+                    onShuffleAll = { plSongs ->
+                        if (plSongs.isNotEmpty()) {
+                            onShuffleAll(plSongs)
+                        }
                     },
-                    onOpenMostPlayed = {
-                        if (mostPlayed.isNotEmpty()) onSongClick(mostPlayed.first(), mostPlayed)
+                    onAddSongToPlaylist = { plId, sUri ->
+                        onAddSongToPlaylist(plId, sUri)
+                        coroutineScope.launch {
+                            val refreshed = onGetPlaylistSongs(plId)
+                            activeDetailState = detail.copy(songs = refreshed)
+                        }
                     },
-                    onCreatePlaylistClick = { showNewPlaylistDialog = true },
-                    onPlaylistClick = onPlaylistClick,
-                    onDeletePlaylist = onDeletePlaylist
+                    onRemoveSongFromPlaylist = { plId, sUri ->
+                        onRemoveSongFromPlaylist(plId, sUri)
+                        coroutineScope.launch {
+                            val refreshed = onGetPlaylistSongs(plId)
+                            activeDetailState = detail.copy(songs = refreshed)
+                        }
+                    }
                 )
+            } else {
+                when (selectedTab) {
+                    0 -> SongsTab(
+                        songs = filteredSongs,
+                        currentSong = currentSong,
+                        onSongClick = { song -> onSongClick(song, filteredSongs) },
+                        onShuffleAll = {
+                            if (filteredSongs.isNotEmpty()) {
+                                onShuffleAll(filteredSongs)
+                            }
+                        },
+                        onOpenAddToPlaylist = { song -> songForPlaylistSelection = song },
+                        onToggleFavorite = onToggleFavorite
+                    )
+                    1 -> AlbumsTab(
+                        albums = albums,
+                        onAlbumClick = { album ->
+                            val albumSongs = songs.filter { it.album == album.title }
+                            activeDetailState = DetailViewState(
+                                title = album.title,
+                                subtitle = album.artist,
+                                songs = albumSongs
+                            )
+                        }
+                    )
+                    2 -> ArtistsTab(
+                        artists = artists,
+                        onArtistClick = { artist ->
+                            val artistSongs = songs.filter { it.artist == artist.name }
+                            activeDetailState = DetailViewState(
+                                title = artist.name,
+                                songs = artistSongs
+                            )
+                        }
+                    )
+                    3 -> FoldersTab(
+                        folders = folders,
+                        onFolderClick = { folder ->
+                            val folderSongs = songs.filter { File(it.filePath).parent == folder.path }
+                            activeDetailState = DetailViewState(
+                                title = folder.name,
+                                subtitle = folder.path,
+                                songs = folderSongs
+                            )
+                        }
+                    )
+                    4 -> PlaylistsTab(
+                        playlists = playlists,
+                        favoritesCount = favorites.size,
+                        recentCount = recentlyPlayed.size,
+                        mostPlayedCount = mostPlayed.size,
+                        onOpenFavorites = {
+                            activeDetailState = DetailViewState(
+                                title = "我喜欢的音乐",
+                                songs = favorites
+                            )
+                        },
+                        onOpenRecent = {
+                            activeDetailState = DetailViewState(
+                                title = "最近播放",
+                                songs = recentlyPlayed
+                            )
+                        },
+                        onOpenMostPlayed = {
+                            activeDetailState = DetailViewState(
+                                title = "最常播放",
+                                songs = mostPlayed
+                            )
+                        },
+                        onPlayFavorites = {
+                            if (favorites.isNotEmpty()) onSongClick(favorites.first(), favorites)
+                        },
+                        onPlayRecent = {
+                            if (recentlyPlayed.isNotEmpty()) onSongClick(recentlyPlayed.first(), recentlyPlayed)
+                        },
+                        onPlayMostPlayed = {
+                            if (mostPlayed.isNotEmpty()) onSongClick(mostPlayed.first(), mostPlayed)
+                        },
+                        onCreatePlaylistClick = { showNewPlaylistDialog = true },
+                        onPlaylistClick = { playlist ->
+                            coroutineScope.launch {
+                                val pSongs = onGetPlaylistSongs(playlist.id)
+                                activeDetailState = DetailViewState(
+                                    title = playlist.name,
+                                    isCustomPlaylist = true,
+                                    customPlaylistId = playlist.id,
+                                    songs = pSongs
+                                )
+                            }
+                        },
+                        onPlaylistPlayClick = onPlaylistClick,
+                        onDeletePlaylist = onDeletePlaylist
+                    )
+                }
             }
         }
     }
 
+    // Dialog for creating a new playlist
     if (showNewPlaylistDialog) {
         AlertDialog(
             onDismissRequest = { showNewPlaylistDialog = false },
@@ -366,6 +485,24 @@ fun MainLibraryScreen(
             }
         )
     }
+
+    // Dialog for adding a song to a custom playlist
+    if (songForPlaylistSelection != null) {
+        val song = songForPlaylistSelection!!
+        AddToPlaylistDialog(
+            song = song,
+            playlists = playlists,
+            onSelectPlaylist = { playlistId ->
+                onAddSongToPlaylist(playlistId, song.uri)
+                songForPlaylistSelection = null
+            },
+            onCreateNewPlaylist = {
+                songForPlaylistSelection = null
+                showNewPlaylistDialog = true
+            },
+            onDismiss = { songForPlaylistSelection = null }
+        )
+    }
 }
 
 @Composable
@@ -373,30 +510,17 @@ private fun SongsTab(
     songs: List<Song>,
     currentSong: Song?,
     onSongClick: (Song) -> Unit,
-    onShuffleAll: () -> Unit
+    onShuffleAll: () -> Unit,
+    onOpenAddToPlaylist: (Song) -> Unit = {},
+    onToggleFavorite: (String) -> Unit = {}
 ) {
     if (songs.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Default.Audiotrack,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = stringResource(R.string.no_songs_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.no_songs_desc),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = stringResource(R.string.no_search_results),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         return
     }
@@ -501,6 +625,54 @@ private fun SongsTab(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    // Song options menu (Add to playlist, favorite)
+                    Box {
+                        var showMenu by remember { mutableStateOf(false) }
+                        IconButton(
+                            onClick = { showMenu = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.add_to_playlist)) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onOpenAddToPlaylist(song)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (song.isFavorite) "取消收藏" else stringResource(R.string.favorites)) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (song.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = null,
+                                        tint = if (song.isFavorite) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onToggleFavorite(song.uri)
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -519,7 +691,7 @@ private fun AlbumsTab(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize()
     ) {
-        items(albums, key = { "${it.id}_${it.title}_${it.artist}" }) { album ->
+        items(albums, key = { it.id }) { album ->
             Card(
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -531,21 +703,19 @@ private fun AlbumsTab(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(110.dp)
+                            .height(130.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                            .background(MaterialTheme.colorScheme.surface),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Album,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                             modifier = Modifier.size(48.dp)
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = album.title,
                         style = MaterialTheme.typography.titleMedium,
@@ -554,11 +724,16 @@ private fun AlbumsTab(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "${album.artist} · ${album.songCount} songs",
+                        text = album.artist,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${album.songCount} tracks",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -581,35 +756,33 @@ private fun ArtistsTab(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(28.dp)
                         )
                     }
-
                     Spacer(modifier = Modifier.width(16.dp))
-
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = artist.name,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "${artist.songCount} songs · ${artist.albumCount} albums",
-                            style = MaterialTheme.typography.bodyMedium,
+                            text = "${artist.songCount} tracks · ${artist.albumCount} albums",
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -634,31 +807,21 @@ private fun FoldersTab(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Folder,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
+                    Icon(
+                        imageVector = Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
                     Spacer(modifier = Modifier.width(16.dp))
-
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = folder.name,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -685,8 +848,12 @@ private fun PlaylistsTab(
     onOpenFavorites: () -> Unit,
     onOpenRecent: () -> Unit,
     onOpenMostPlayed: () -> Unit,
+    onPlayFavorites: () -> Unit,
+    onPlayRecent: () -> Unit,
+    onPlayMostPlayed: () -> Unit,
     onCreatePlaylistClick: () -> Unit,
     onPlaylistClick: (Playlist) -> Unit = {},
+    onPlaylistPlayClick: (Playlist) -> Unit = {},
     onDeletePlaylist: (Playlist) -> Unit = {}
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -698,7 +865,8 @@ private fun PlaylistsTab(
                     count = favoritesCount,
                     icon = Icons.Default.Favorite,
                     iconTint = MaterialTheme.colorScheme.error,
-                    onClick = onOpenFavorites
+                    onClick = onOpenFavorites,
+                    onPlayClick = onPlayFavorites
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 SmartPlaylistCard(
@@ -706,7 +874,8 @@ private fun PlaylistsTab(
                     count = recentCount,
                     icon = Icons.Default.History,
                     iconTint = MaterialTheme.colorScheme.primary,
-                    onClick = onOpenRecent
+                    onClick = onOpenRecent,
+                    onPlayClick = onPlayRecent
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 SmartPlaylistCard(
@@ -714,7 +883,8 @@ private fun PlaylistsTab(
                     count = mostPlayedCount,
                     icon = Icons.AutoMirrored.Filled.TrendingUp,
                     iconTint = HiResGold,
-                    onClick = onOpenMostPlayed
+                    onClick = onOpenMostPlayed,
+                    onPlayClick = onPlayMostPlayed
                 )
             }
         }
@@ -769,9 +939,17 @@ private fun PlaylistsTab(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "${playlist.songCount} songs",
+                            text = "${playlist.songCount} 首歌曲",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = { onPlaylistPlayClick(playlist) }) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = stringResource(R.string.play),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                     IconButton(onClick = { onDeletePlaylist(playlist) }) {
@@ -794,7 +972,8 @@ private fun SmartPlaylistCard(
     count: Int,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     iconTint: androidx.compose.ui.graphics.Color,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onPlayClick: () -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -813,7 +992,9 @@ private fun SmartPlaylistCard(
                 Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(text = "$count tracks", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            IconButton(onClick = onPlayClick) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = MaterialTheme.colorScheme.primary)
+            }
         }
     }
 }

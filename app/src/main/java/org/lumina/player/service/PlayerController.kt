@@ -26,12 +26,14 @@ import org.lumina.player.core.model.AudioTechnicalInfo
 import org.lumina.player.core.model.PlayMode
 import org.lumina.player.core.model.Song
 import org.lumina.player.core.tag.AudioTagReader
+import org.lumina.player.data.preferences.AudioPreferences
 import org.lumina.player.data.repository.MusicRepository
 import kotlin.random.Random
 
 class PlayerController(
     private val context: Context,
-    private val repository: MusicRepository
+    private val repository: MusicRepository,
+    private val audioPreferences: AudioPreferences
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -56,7 +58,7 @@ class PlayerController(
     private val _queueIndex = MutableStateFlow(-1)
     val queueIndex: StateFlow<Int> = _queueIndex.asStateFlow()
 
-    private val _playMode = MutableStateFlow(PlayMode.REPEAT_ALL)
+    private val _playMode = MutableStateFlow(audioPreferences.settings.value.playMode)
     val playMode: StateFlow<PlayMode> = _playMode.asStateFlow()
 
     private val _currentLyrics = MutableStateFlow<List<LyricLine>>(emptyList())
@@ -153,7 +155,44 @@ class PlayerController(
             repository.songsFlow.collect { songs ->
                 if (_currentSong.value == null && songs.isNotEmpty()) {
                     restoreLastPlaybackState(songs)
+                } else if (_currentSong.value != null) {
+                    val curUri = _currentSong.value?.uri
+                    val updated = songs.firstOrNull { it.uri == curUri }
+                    if (updated != null && updated != _currentSong.value) {
+                        _currentSong.value = updated
+                    }
+                    val currentQueue = _queue.value
+                    if (currentQueue.isNotEmpty()) {
+                        val songsMap = songs.associateBy { it.uri }
+                        var changed = false
+                        val newQueue = currentQueue.map { qSong ->
+                            val s = songsMap[qSong.uri]
+                            if (s != null && s != qSong) {
+                                changed = true
+                                s
+                            } else {
+                                qSong
+                            }
+                        }
+                        if (changed) {
+                            _queue.value = newQueue
+                        }
+                    }
                 }
+            }
+        }
+    }
+
+    fun toggleFavorite(uri: String) {
+        repository.toggleFavorite(uri)
+        val cur = _currentSong.value
+        if (cur?.uri == uri) {
+            _currentSong.value = cur.copy(isFavorite = !cur.isFavorite)
+        }
+        val currentQueue = _queue.value
+        if (currentQueue.any { it.uri == uri }) {
+            _queue.value = currentQueue.map {
+                if (it.uri == uri) it.copy(isFavorite = !it.isFavorite) else it
             }
         }
     }
@@ -197,10 +236,9 @@ class PlayerController(
         _currentArtwork.value = null
         notifyWidgetUpdate()
 
-        val audioPrefs = (context.applicationContext as? org.lumina.player.LuminaApp)?.audioPreferences
-        audioPrefs?.setLastSongUri(song.uri)
-        audioPrefs?.setLastPositionMs(startPositionMs)
-        audioPrefs?.setLastQueueUris(_queue.value.map { it.uri })
+        audioPreferences.setLastSongUri(song.uri)
+        audioPreferences.setLastPositionMs(startPositionMs)
+        audioPreferences.setLastQueueUris(_queue.value.map { it.uri })
 
         // Load artwork, lyrics, and technical audio parameters asynchronously
         metadataJob?.cancel()
@@ -274,6 +312,10 @@ class PlayerController(
 
     fun pause() {
         service?.player?.pause()
+        val pos = service?.player?.currentPosition ?: _currentPositionMs.value
+        if (pos > 0) {
+            audioPreferences.setLastPositionMs(pos)
+        }
     }
 
     fun seekTo(positionMs: Long) {
@@ -282,6 +324,7 @@ class PlayerController(
         val safePosition = if (duration > 0) positionMs.coerceIn(0L, duration) else positionMs.coerceAtLeast(0L)
         _currentPositionMs.value = safePosition
         player.seekTo(safePosition)
+        audioPreferences.setLastPositionMs(safePosition)
     }
 
     fun skipNext() {
@@ -344,6 +387,7 @@ class PlayerController(
 
     fun setPlayMode(mode: PlayMode) {
         _playMode.value = mode
+        audioPreferences.setPlayMode(mode)
     }
 
     fun adjustLyricsOffset(deltaMs: Long) {
@@ -476,8 +520,7 @@ class PlayerController(
                 saveCounter++
                 if (saveCounter >= 5) { // Persist playback position once per second
                     saveCounter = 0
-                    val audioPrefs = (context.applicationContext as? org.lumina.player.LuminaApp)?.audioPreferences
-                    audioPrefs?.setLastPositionMs(pos)
+                    audioPreferences.setLastPositionMs(pos)
                 }
                 delay(200L)
             }
@@ -486,19 +529,22 @@ class PlayerController(
 
     private fun stopPositionTracker() {
         positionTrackerJob?.cancel()
+        val pos = service?.player?.currentPosition ?: _currentPositionMs.value
+        if (pos > 0) {
+            audioPreferences.setLastPositionMs(pos)
+        }
     }
 
     /**
-     * Restores previous playback song, queue, and position from interrupted/closed session.
+     * Restores previous playback song, queue, playMode, and position from interrupted/closed session.
      * Prevents MiniPlayer loss and allows resuming seamless playback.
      */
     fun restoreLastPlaybackState(songs: List<Song>) {
         if (_currentSong.value != null || songs.isEmpty()) return
-        val audioPrefs = (context.applicationContext as? org.lumina.player.LuminaApp)?.audioPreferences ?: return
-        val lastUri = audioPrefs.getLastSongUri() ?: return
+        val lastUri = audioPreferences.getLastSongUri() ?: return
         val targetSong = songs.firstOrNull { it.uri == lastUri } ?: return
-        val lastPos = audioPrefs.getLastPositionMs()
-        val queueUris = audioPrefs.getLastQueueUris()
+        val lastPos = audioPreferences.getLastPositionMs()
+        val queueUris = audioPreferences.getLastQueueUris()
         val restoredQueue = if (queueUris.isNotEmpty()) {
             val map = songs.associateBy { it.uri }
             queueUris.mapNotNull { map[it] }.ifEmpty { listOf(targetSong) }
@@ -511,7 +557,15 @@ class PlayerController(
         _currentSong.value = targetSong
         _currentPositionMs.value = lastPos
         _durationMs.value = targetSong.durationMs
+        _playMode.value = audioPreferences.settings.value.playMode
         notifyWidgetUpdate()
+
+        // Silently prepare player on service if connected so user can immediately resume
+        service?.let { s ->
+            if (s.player.currentMediaItem == null) {
+                s.prepareSong(targetSong, playWhenReady = false, startPositionMs = lastPos)
+            }
+        }
 
         // Silently preload artwork, lyrics, and metadata in the background
         metadataJob?.cancel()

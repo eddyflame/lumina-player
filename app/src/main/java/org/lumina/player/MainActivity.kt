@@ -224,7 +224,6 @@ fun LuminaPlayerApp(
                     if (songsToShuffle.isNotEmpty()) {
                         val shuffled = songsToShuffle.shuffled()
                         app.playerController.setPlayMode(PlayMode.SHUFFLE)
-                        app.audioPreferences.setPlayMode(PlayMode.SHUFFLE)
                         app.playerController.playSong(shuffled.first(), shuffled)
                     }
                 },
@@ -239,7 +238,11 @@ fun LuminaPlayerApp(
                 },
                 onDeletePlaylist = { playlist ->
                     app.repository.deletePlaylist(playlist.id)
-                }
+                },
+                onGetPlaylistSongs = { id -> app.repository.getPlaylistSongs(id) },
+                onAddSongToPlaylist = { id, uri -> app.repository.addSongToPlaylist(id, uri) },
+                onRemoveSongFromPlaylist = { id, uri -> app.repository.removeSongFromPlaylist(id, uri) },
+                onToggleFavorite = { uri -> app.playerController.toggleFavorite(uri) }
             )
 
             // Fullscreen vinyl & lyrics player screen
@@ -268,11 +271,10 @@ fun LuminaPlayerApp(
                         onSkipNext = { app.playerController.skipNext() },
                         onSkipPrevious = { app.playerController.skipPrevious() },
                         onSeekTo = { pos -> app.playerController.seekTo(pos) },
-                        onToggleFavorite = { app.repository.toggleFavorite(song.uri) },
+                        onToggleFavorite = { app.playerController.toggleFavorite(song.uri) },
                         onCyclePlayMode = {
                             val nextMode = playMode.next()
                             app.playerController.setPlayMode(nextMode)
-                            app.audioPreferences.setPlayMode(nextMode)
                         },
                         onOpenQueue = { isQueueOpen = true },
                         onAdjustLyricsOffset = { delta -> app.playerController.adjustLyricsOffset(delta) },

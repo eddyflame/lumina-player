@@ -96,6 +96,10 @@
     <string name="create">Create</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
+    <string name="play_all">Play All</string>
+    <string name="add_songs">Add Songs</string>
+    <string name="empty_playlist">No songs in this playlist</string>
+    <string name="back">Back</string>
 
     <!-- Track & Audio Info -->
     <string name="audio_info">Audio Information</string>

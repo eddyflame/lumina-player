@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -33,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.lumina.player.R
 import org.lumina.player.core.dsp.AudioDspController
+import kotlin.math.abs
 
 @Composable
 fun EqualizerDialog(
@@ -51,6 +51,28 @@ fun EqualizerDialog(
         (0 until numBands).map { band ->
             mutableFloatStateOf(dspController?.getBandLevel(band.toShort())?.toFloat() ?: 0f)
         }
+    }
+
+    val presets = remember {
+        listOf(
+            R.string.eq_flat to listOf(0, 0, 0, 0, 0),
+            R.string.eq_rock to listOf(400, 200, -100, 300, 500),
+            R.string.eq_pop to listOf(-100, 200, 500, 100, -200),
+            R.string.eq_jazz to listOf(300, 100, -200, 200, 400),
+            R.string.eq_classical to listOf(400, 300, -200, 200, 300),
+            R.string.eq_metal to listOf(500, 100, -300, 400, 600),
+            R.string.eq_hiphop to listOf(400, 300, 0, 200, 300)
+        )
+    }
+
+    // Determine initial matching preset based on current band levels
+    var selectedPresetResId by remember {
+        val initialMatch = presets.firstOrNull { (_, levels) ->
+            levels.indices.all { idx ->
+                idx < bandLevels.size && abs(bandLevels[idx].floatValue - levels[idx].toFloat()) < 10f
+            }
+        }?.first
+        mutableStateOf<Int?>(initialMatch)
     }
 
     AlertDialog(
@@ -94,20 +116,13 @@ fun EqualizerDialog(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val presets = listOf(
-                        stringResource(R.string.eq_flat) to listOf(0, 0, 0, 0, 0),
-                        stringResource(R.string.eq_rock) to listOf(400, 200, -100, 300, 500),
-                        stringResource(R.string.eq_pop) to listOf(-100, 200, 500, 100, -200),
-                        stringResource(R.string.eq_jazz) to listOf(300, 100, -200, 200, 400),
-                        stringResource(R.string.eq_classical) to listOf(400, 300, -200, 200, 300),
-                        stringResource(R.string.eq_metal) to listOf(500, 100, -300, 400, 600)
-                    )
-
-                    presets.forEach { (name, levels) ->
+                    presets.forEach { (nameRes, levels) ->
+                        val isSelected = selectedPresetResId == nameRes
                         FilterChip(
-                            selected = false,
+                            selected = isSelected,
                             onClick = {
                                 if (isEnabled && dspController != null) {
+                                    selectedPresetResId = nameRes
                                     levels.forEachIndexed { idx, lvl ->
                                         if (idx < bandLevels.size) {
                                             bandLevels[idx].floatValue = lvl.toFloat()
@@ -116,7 +131,7 @@ fun EqualizerDialog(
                                     }
                                 }
                             },
-                            label = { Text(name, fontSize = 12.sp) }
+                            label = { Text(stringResource(nameRes), fontSize = 12.sp) }
                         )
                     }
                 }
@@ -151,6 +166,7 @@ fun EqualizerDialog(
                         Slider(
                             value = levelState.floatValue,
                             onValueChange = { newValue ->
+                                selectedPresetResId = null
                                 levelState.floatValue = newValue
                                 dspController?.setBandLevel(band.toShort(), newValue.toInt().toShort())
                             },

@@ -286,6 +286,13 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
         scope.launch {
             withContext(Dispatchers.IO) {
                 val db = writableDatabase
+                val existsCursor = db.rawQuery(
+                    "SELECT COUNT(*) FROM $TABLE_PLAYLIST_ITEMS WHERE $COL_PI_PLAYLIST_ID = ? AND $COL_PI_SONG_URI = ?",
+                    arrayOf(playlistId.toString(), songUri)
+                )
+                val exists = existsCursor.use { if (it.moveToFirst()) it.getInt(0) > 0 else false }
+                if (exists) return@withContext
+
                 val countCursor = db.rawQuery(
                     "SELECT COUNT(*) FROM $TABLE_PLAYLIST_ITEMS WHERE $COL_PI_PLAYLIST_ID = ?",
                     arrayOf(playlistId.toString())

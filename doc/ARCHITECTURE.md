@@ -15,6 +15,8 @@ graph TD
     subgraph UI ["Presentation Layer (Jetpack Compose + Material 3)"]
         MainActivity[MainActivity: Edge-to-Edge & Predictive Back]
         MainLibraryScreen[MainLibraryScreen: Songs / Albums / Artists / Folders / Playlists]
+        PlaylistDetailView[PlaylistDetailView: Song Inspection / Batch Add / Track Removal]
+        AddToPlaylistDialog[AddToPlaylistDialog: Playlist Selector & Quick Creation]
         MiniPlayer[MiniPlayer: Floating Micro-Playback Bar]
         FullPlayerScreen[FullPlayerScreen: Vinyl / Ambient Glow / Synced Lyrics]
         QueueSheet[QueueBottomSheet: Drag Reorder & Queue Manager]
@@ -82,10 +84,11 @@ Lumina Player is engineered to support the widest possible spectrum of local aud
 * **Clipping Configuration for CUE Tracks**: For virtual CUE songs, `MediaItem.ClippingConfiguration` precisely boundaries playback to `startMs` and `endMs` seamlessly.
 
 ### 4.2 DSP & Audio Effects
-* **10-Band Graphic Equalizer**: Connects to the active Android `audioSessionId`.
+* **10-Band Graphic Equalizer**: Connects to the active Android `audioSessionId` with instant preset synchronization and custom curve detection.
 * **Presets & Custom Gain**: Flat, Rock, Pop, Jazz, Classical, Metal, HipHop presets with ±15 dB per-band adjustments.
-* **Bass Boost & 3D Virtualizer**: Dynamic audio enhancement with customizable strength.
+* **Bass Boost & 3D Virtualizer**: Dynamic audio enhancement with ~60ms anti-pop step interpolation and hardware passthrough persistence (avoids crackling/popping on slider release).
 * **Sleep Timer with Soft Fade-Out**: In the last 10 seconds of countdown, master volume gently interpolates down to zero before pausing playback, ensuring comfortable transitions.
+* **Playback Mode & State Persistence**: Seamlessly restores play mode (repeat/shuffle), track index, and position on app restart.
 
 ### 4.3 Zero-Reflection Reactive Persistence (`MusicDatabase`)
 * Avoids KSP annotation-processor brittleness across rapid Kotlin 2.x and AGP upgrades.

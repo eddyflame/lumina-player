@@ -96,6 +96,10 @@
     <string name="create">创建</string>
     <string name="cancel">取消</string>
     <string name="save">保存</string>
+    <string name="play_all">播放全部</string>
+    <string name="add_songs">添加歌曲</string>
+    <string name="empty_playlist">歌单暂无歌曲</string>
+    <string name="back">返回</string>
 
     <!-- 音频信息与标签 -->
     <string name="audio_info">音频详细参数</string>
