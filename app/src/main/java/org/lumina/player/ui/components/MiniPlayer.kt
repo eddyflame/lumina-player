@@ -72,8 +72,9 @@ import kotlin.math.abs
 fun MiniPlayer(
     currentSong: Song?,
     isPlaying: Boolean,
-    currentPositionMs: Long,
     durationMs: Long,
+    currentPositionMs: Long = 0L,
+    currentPositionProvider: (() -> Long)? = null,
     artwork: android.graphics.Bitmap? = null,
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
@@ -90,7 +91,6 @@ fun MiniPlayer(
     ) {
         if (currentSong == null) return@AnimatedVisibility
 
-        val progress = if (durationMs > 0) (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
         val coroutineScope = rememberCoroutineScope()
         val offsetX = remember { Animatable(0f) }
         val density = LocalDensity.current
@@ -225,7 +225,10 @@ fun MiniPlayer(
             Column(modifier = Modifier.fillMaxWidth()) {
                 // Top thin progress indicator
                 LinearProgressIndicator(
-                    progress = { progress },
+                    progress = {
+                        val pos = currentPositionProvider?.invoke() ?: currentPositionMs
+                        if (durationMs > 0) (pos.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(2.5.dp),

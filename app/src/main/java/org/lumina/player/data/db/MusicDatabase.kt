@@ -88,6 +88,22 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
             )
             """.trimIndent()
         )
+
+        createIndices(db)
+    }
+
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        createIndices(db)
+    }
+
+    private fun createIndices(db: SQLiteDatabase) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_songs_artist ON $TABLE_SONGS($COL_ARTIST)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_songs_album ON $TABLE_SONGS($COL_ALBUM)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_songs_favorite ON $TABLE_SONGS($COL_FAVORITE)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_songs_last_played ON $TABLE_SONGS($COL_LAST_PLAYED)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_songs_play_count ON $TABLE_SONGS($COL_PLAY_COUNT)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_pl_items_playlist ON $TABLE_PLAYLIST_ITEMS($COL_PI_PLAYLIST_ID)")
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {

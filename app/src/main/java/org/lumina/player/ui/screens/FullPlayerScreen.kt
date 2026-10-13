@@ -57,6 +57,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -70,11 +71,14 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.lumina.player.R
 import org.lumina.player.core.lyrics.LyricLine
 import org.lumina.player.core.model.AudioTechnicalInfo
@@ -135,14 +139,17 @@ fun FullPlayerScreen(
     val displayPosition = if (isUserSeeking) userSeekPositionMs.toLong() else currentPositionMs
     val progressFraction = if (durationMs > 0) (displayPosition.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
 
-    // Extract dynamic dominant artwork palette color
-    val dominantColor = remember(artwork) {
+    // Extract dynamic dominant artwork palette color asynchronously off the UI thread
+    var dominantColor by remember { mutableStateOf(LuminaPrimary) }
+    LaunchedEffect(artwork) {
         if (artwork != null) {
-            val palette = androidx.palette.graphics.Palette.from(artwork).generate()
-            val rgb = palette.getVibrantColor(palette.getDominantColor(0xFF0284C7.toInt()))
-            Color(rgb)
+            withContext(Dispatchers.Default) {
+                val palette = androidx.palette.graphics.Palette.from(artwork).generate()
+                val rgb = palette.getVibrantColor(palette.getDominantColor(0xFF0284C7.toInt()))
+                dominantColor = Color(rgb)
+            }
         } else {
-            LuminaPrimary
+            dominantColor = LuminaPrimary
         }
     }
 
@@ -312,7 +319,7 @@ fun FullPlayerScreen(
                                 .shadow(24.dp, shape = CircleShape)
                                 .clip(CircleShape)
                                 .background(Color(0xFF111827))
-                                .rotate(if (isPlaying) vinylRotation else 0f),
+                                .graphicsLayer { rotationZ = if (isPlaying) vinylRotation else 0f },
                             contentAlignment = Alignment.Center
                         ) {
                             // Vinyl record grooves and center label

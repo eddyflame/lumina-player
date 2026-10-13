@@ -24,6 +24,9 @@ object LrcParser {
         val result = mutableListOf<LyricLine>()
         val lines = lrcContent.lines()
 
+        val offsetMatch = "\\[offset:([+-]?\\d+)]".toRegex().find(lrcContent)
+        val globalOffset = offsetMatch?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+
         for (rawLine in lines) {
             val line = rawLine.trim()
             if (line.isBlank() || line.startsWith("[ti:") || line.startsWith("[ar:") ||
@@ -50,7 +53,7 @@ object LrcParser {
                     else -> 0L
                 }
 
-                val timeMs = min * 60_000L + sec * 1_000L + ms
+                val timeMs = (min * 60_000L + sec * 1_000L + ms + globalOffset).coerceAtLeast(0L)
                 if (text.isNotBlank()) {
                     result.add(LyricLine(startMs = timeMs, content = text))
                 }

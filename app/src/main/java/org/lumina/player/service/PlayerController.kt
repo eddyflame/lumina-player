@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.os.Build
 import android.os.IBinder
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
@@ -156,7 +157,11 @@ class PlayerController(
     fun playSong(song: Song, newQueue: List<Song> = emptyList()) {
         val intent = Intent(context, LuminaAudioService::class.java)
         runCatching {
-            context.startService(intent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
         }
         if (newQueue.isNotEmpty()) {
             _queue.value = newQueue

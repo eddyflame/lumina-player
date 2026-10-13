@@ -6,8 +6,11 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     
-    <!-- Background Playback -->
+    <!-- Background Playback & Lock Screen Controls -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Audio Focus & Bluetooth / Headset -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
@@ -63,10 +66,16 @@
             </intent-filter>
         </activity>
 
-        <!-- Audio Playback Service -->
+        <!-- Audio Playback Service supporting Lock Screen & System Media Controls -->
         <service
             android:name=".service.LuminaAudioService"
-            android:exported="false" />
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
 
         <!-- Desktop Audio Playback Widget -->
         <receiver

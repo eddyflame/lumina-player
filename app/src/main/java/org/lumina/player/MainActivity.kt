@@ -120,11 +120,12 @@ fun LuminaPlayerApp(
     val queueSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val settingsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // Audio permission request launcher
+    // Audio & Lock Screen permission request launcher
     val permissionsToRequest = remember {
         buildList {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.READ_MEDIA_AUDIO)
+                add(Manifest.permission.POST_NOTIFICATIONS)
             } else {
                 add(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
@@ -205,8 +206,8 @@ fun LuminaPlayerApp(
                 mostPlayed = mostPlayed,
                 currentSong = currentSong,
                 isPlaying = isPlaying,
-                currentPositionMs = currentPositionMs,
                 durationMs = durationMs,
+                currentPositionProvider = { app.playerController.currentPositionMs.value },
                 artwork = currentArtwork,
                 onSongClick = { song, songList ->
                     app.playerController.playSong(song, songList)
