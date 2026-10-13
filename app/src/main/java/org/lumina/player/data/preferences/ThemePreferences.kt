@@ -20,7 +20,7 @@ enum class DarkThemeStyle {
 data class ThemeSettings(
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val darkThemeStyle: DarkThemeStyle = DarkThemeStyle.SLATE,
-    val dynamicColor: Boolean = true
+    val dynamicColor: Boolean = false
 )
 
 class ThemePreferences(context: Context) {
@@ -32,7 +32,7 @@ class ThemePreferences(context: Context) {
     private fun loadSettings(): ThemeSettings {
         val modeStr = prefs.getString(KEY_THEME_MODE, AppThemeMode.SYSTEM.name) ?: AppThemeMode.SYSTEM.name
         val styleStr = prefs.getString(KEY_DARK_STYLE, DarkThemeStyle.SLATE.name) ?: DarkThemeStyle.SLATE.name
-        val dynamicColor = prefs.getBoolean(KEY_DYNAMIC_COLOR, true)
+        val dynamicColor = prefs.getBoolean(KEY_DYNAMIC_COLOR, false)
 
         val mode = runCatching { AppThemeMode.valueOf(modeStr) }.getOrDefault(AppThemeMode.SYSTEM)
         val style = runCatching { DarkThemeStyle.valueOf(styleStr) }.getOrDefault(DarkThemeStyle.SLATE)
