@@ -44,8 +44,6 @@ class AudioDspController {
 
         runCatching {
             equalizer = Equalizer(0, audioSessionId).apply {
-                enabled = isEnabled
-                // Restore previously applied frequency band levels
                 val numBands = numberOfBands.toInt()
                 if (currentBandLevels.size == numBands) {
                     for (i in 0 until numBands) {
@@ -57,33 +55,35 @@ class AudioDspController {
                         currentBandLevels.add(getBandLevel(i.toShort()))
                     }
                 }
+                // Only enable when non-flat to prevent filter-insertion pops and clipping
+                enabled = isEnabled && currentBandLevels.any { it != 0.toShort() }
             }
         }
 
         runCatching {
             bassBoost = BassBoost(0, audioSessionId).apply {
-                enabled = isEnabled
                 if (strengthSupported) {
                     setStrength(bassBoostStrength)
                 }
+                enabled = isEnabled && bassBoostStrength > 0
             }
         }
 
         runCatching {
             virtualizer = Virtualizer(0, audioSessionId).apply {
-                enabled = isEnabled
                 if (strengthSupported) {
                     setStrength(virtualizerStrength)
                 }
+                enabled = isEnabled && virtualizerStrength > 0
             }
         }
     }
 
     fun setEnabled(enabled: Boolean) {
         isEnabled = enabled
-        equalizer?.enabled = enabled
-        bassBoost?.enabled = enabled
-        virtualizer?.enabled = enabled
+        equalizer?.enabled = enabled && currentBandLevels.any { it != 0.toShort() }
+        bassBoost?.enabled = enabled && bassBoostStrength > 0
+        virtualizer?.enabled = enabled && virtualizerStrength > 0
     }
 
     fun isEnabled(): Boolean = isEnabled
@@ -109,6 +109,7 @@ class AudioDspController {
         currentBandLevels[bandIndex] = level
         runCatching {
             equalizer?.setBandLevel(band, level)
+            equalizer?.enabled = isEnabled && currentBandLevels.any { it != 0.toShort() }
         }
     }
 
@@ -116,6 +117,7 @@ class AudioDspController {
         bassBoostStrength = strength.coerceIn(0, 1000)
         runCatching {
             bassBoost?.setStrength(bassBoostStrength)
+            bassBoost?.enabled = isEnabled && bassBoostStrength > 0
         }
     }
 
@@ -125,6 +127,7 @@ class AudioDspController {
         virtualizerStrength = strength.coerceIn(0, 1000)
         runCatching {
             virtualizer?.setStrength(virtualizerStrength)
+            virtualizer?.enabled = isEnabled && virtualizerStrength > 0
         }
     }
 

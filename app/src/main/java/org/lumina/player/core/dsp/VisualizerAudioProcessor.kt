@@ -62,6 +62,10 @@ class VisualizerAudioProcessor(
     private var encoding = C.ENCODING_PCM_16BIT
     private var lastEmitTimeMs = 0L
 
+    // Anti-pop micro soft ramp (25ms smooth gain fade-in on startup, unpause, and seek)
+    private var totalRampFrames = (44100 * 25) / 1000
+    private var rampFramesRemaining = totalRampFrames
+
     private var decayJob: Job? = null
     @Volatile
     private var hasActiveAudio = false
@@ -76,7 +80,15 @@ class VisualizerAudioProcessor(
         channelCount = inputAudioFormat.channelCount.takeIf { it > 0 } ?: 2
         encoding = inputAudioFormat.encoding
         computeBandRanges(sampleRate)
+        totalRampFrames = ((sampleRate * 25) / 1000).coerceAtLeast(64)
+        rampFramesRemaining = totalRampFrames
         return inputAudioFormat // Pass-through unaltered audio
+    }
+
+    override fun onFlush() {
+        super.onFlush()
+        pcmSampleIndex = 0
+        rampFramesRemaining = totalRampFrames
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -88,6 +100,28 @@ class VisualizerAudioProcessor(
         val sampleBytes = inputBuffer.asReadOnlyBuffer().order(ByteOrder.LITTLE_ENDIAN)
         outputBuffer.put(inputBuffer)
         outputBuffer.flip()
+
+        // Apply hardware anti-pop soft ramp envelope on audio track start / seek
+        if (encoding == C.ENCODING_PCM_16BIT && rampFramesRemaining > 0) {
+            val bytesPerFrame = channelCount * 2
+            if (bytesPerFrame > 0) {
+                val totalFrames = remaining / bytesPerFrame
+                val framesToRamp = totalFrames.coerceAtMost(rampFramesRemaining)
+                val out = outputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN)
+                for (f in 0 until framesToRamp) {
+                    val currentRampIndex = totalRampFrames - rampFramesRemaining
+                    val gain = (currentRampIndex.toFloat() / totalRampFrames.toFloat()).coerceIn(0f, 1f)
+                    val frameOffset = f * bytesPerFrame
+                    for (ch in 0 until channelCount) {
+                        val samplePos = frameOffset + ch * 2
+                        val sample = out.getShort(samplePos)
+                        val ramped = (sample * gain).toInt().coerceIn(-32768, 32767).toShort()
+                        out.putShort(samplePos, ramped)
+                    }
+                    rampFramesRemaining--
+                }
+            }
+        }
 
         if (encoding != C.ENCODING_PCM_16BIT) return
 
@@ -250,6 +284,8 @@ class VisualizerAudioProcessor(
     override fun onReset() {
         super.onReset()
         resetSpectrum()
+        pcmSampleIndex = 0
+        rampFramesRemaining = totalRampFrames
     }
 
     /**

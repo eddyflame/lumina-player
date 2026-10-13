@@ -102,11 +102,8 @@ class PlayerController(
             _currentSong.value?.let { pendingSong ->
                 if (service?.player?.currentMediaItem == null) {
                     val shouldPlay = _isPlaying.value
-                    service?.prepareSong(pendingSong, playWhenReady = shouldPlay)
                     val pos = _currentPositionMs.value
-                    if (pos > 0) {
-                        service?.player?.seekTo(pos)
-                    }
+                    service?.prepareSong(pendingSong, playWhenReady = shouldPlay, startPositionMs = pos)
                 }
             }
         }
@@ -169,7 +166,7 @@ class PlayerController(
         }
     }
 
-    fun playSong(song: Song, newQueue: List<Song> = emptyList()) {
+    fun playSong(song: Song, newQueue: List<Song> = emptyList(), startPositionMs: Long = 0L) {
         val intent = Intent(context, LuminaAudioService::class.java)
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -194,7 +191,7 @@ class PlayerController(
         }
 
         _currentSong.value = song
-        _currentPositionMs.value = 0L
+        _currentPositionMs.value = startPositionMs
         _durationMs.value = song.durationMs
         _lyricsOffsetMs.value = 0L
         _currentArtwork.value = null
@@ -202,7 +199,7 @@ class PlayerController(
 
         val audioPrefs = (context.applicationContext as? org.lumina.player.LuminaApp)?.audioPreferences
         audioPrefs?.setLastSongUri(song.uri)
-        audioPrefs?.setLastPositionMs(0L)
+        audioPrefs?.setLastPositionMs(startPositionMs)
         audioPrefs?.setLastQueueUris(_queue.value.map { it.uri })
 
         // Load artwork, lyrics, and technical audio parameters asynchronously
@@ -239,7 +236,7 @@ class PlayerController(
             repository.recordPlay(song.uri)
         }
 
-        service?.prepareSong(song, playWhenReady = true)
+        service?.prepareSong(song, playWhenReady = true, startPositionMs = startPositionMs)
     }
 
     fun togglePlayPause() {
@@ -247,10 +244,7 @@ class PlayerController(
         if (player == null || player.currentMediaItem == null) {
             _currentSong.value?.let { restoredSong ->
                 val startPos = _currentPositionMs.value
-                playSong(restoredSong, _queue.value)
-                if (startPos > 0) {
-                    seekTo(startPos)
-                }
+                playSong(restoredSong, _queue.value, startPositionMs = startPos)
                 return
             }
         }
@@ -271,10 +265,7 @@ class PlayerController(
         if (player == null || player.currentMediaItem == null) {
             _currentSong.value?.let { restoredSong ->
                 val startPos = _currentPositionMs.value
-                playSong(restoredSong, _queue.value)
-                if (startPos > 0) {
-                    seekTo(startPos)
-                }
+                playSong(restoredSong, _queue.value, startPositionMs = startPos)
                 return
             }
         }

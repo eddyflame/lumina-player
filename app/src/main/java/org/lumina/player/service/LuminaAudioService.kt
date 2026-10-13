@@ -25,6 +25,11 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import org.lumina.player.LuminaApp
 import org.lumina.player.MainActivity
 import org.lumina.player.R
@@ -43,6 +48,7 @@ class LuminaAudioService : MediaSessionService() {
 
     val dspController = AudioDspController()
     val visualizerProcessor = org.lumina.player.core.dsp.VisualizerAudioProcessor(barCount = 24)
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private var wakeLock: PowerManager.WakeLock? = null
     private val binder = LocalBinder()
@@ -80,11 +86,13 @@ class LuminaAudioService : MediaSessionService() {
             .setSeekParameters(androidx.media3.exoplayer.SeekParameters.EXACT)
             .build()
 
-        // Attach system audio session for equalizer & maintain CPU wake lock during active playback
+        // Attach system audio session for equalizer asynchronously & maintain CPU wake lock during active playback
         player.addListener(object : Player.Listener {
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 if (audioSessionId != C.AUDIO_SESSION_ID_UNSET && audioSessionId != 0) {
-                    dspController.attachAudioSession(audioSessionId)
+                    serviceScope.launch {
+                        dspController.attachAudioSession(audioSessionId)
+                    }
                 }
             }
 
@@ -100,7 +108,9 @@ class LuminaAudioService : MediaSessionService() {
 
         val initialSessionId = player.audioSessionId
         if (initialSessionId != C.AUDIO_SESSION_ID_UNSET && initialSessionId != 0) {
-            dspController.attachAudioSession(initialSessionId)
+            serviceScope.launch {
+                dspController.attachAudioSession(initialSessionId)
+            }
         }
 
         // Create low-importance, silent notification channel for non-intrusive lockscreen controls
@@ -297,7 +307,7 @@ class LuminaAudioService : MediaSessionService() {
         }
     }
 
-    fun prepareSong(song: Song, artworkBytes: ByteArray? = null, playWhenReady: Boolean = true) {
+    fun prepareSong(song: Song, artworkBytes: ByteArray? = null, playWhenReady: Boolean = true, startPositionMs: Long = 0L) {
         val metadataBuilder = MediaMetadata.Builder()
             .setTitle(song.title)
             .setArtist(song.displayArtist)
@@ -333,6 +343,9 @@ class LuminaAudioService : MediaSessionService() {
             .build()
 
         player.setMediaItem(mediaItem)
+        if (startPositionMs > 0) {
+            player.seekTo(startPositionMs)
+        }
         player.prepare()
         player.playWhenReady = playWhenReady
 
@@ -376,6 +389,7 @@ class LuminaAudioService : MediaSessionService() {
         }
         dspController.release()
         visualizerProcessor.resetSpectrum()
+        serviceScope.cancel()
         runCatching {
             if (wakeLock?.isHeld == true) wakeLock?.release()
         }
