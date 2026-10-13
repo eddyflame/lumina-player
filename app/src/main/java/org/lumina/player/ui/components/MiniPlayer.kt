@@ -209,21 +209,14 @@ fun MiniPlayer(
                         }
 
                         if (isDrag && !isTransitioning && offsetX.value != 0f) {
-                            val current = offsetX.value
-                            if (current < -swipeThresholdPx) {
-                                triggerTrackTransition(isNext = true)
-                            } else if (current > swipeThresholdPx) {
-                                triggerTrackTransition(isNext = false)
-                            } else {
-                                coroutineScope.launch {
-                                    offsetX.animateTo(
-                                        0f,
-                                        spring(
-                                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                                            stiffness = Spring.StiffnessMediumLow
-                                        )
+                            coroutineScope.launch {
+                                offsetX.animateTo(
+                                    0f,
+                                    spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
                                     )
-                                }
+                                )
                             }
                         }
                     }
@@ -311,7 +304,7 @@ fun MiniPlayer(
 
                     // Playback control buttons
                     IconButton(
-                        onClick = { triggerTrackTransition(isNext = false) },
+                        onClick = onSkipPrevious,
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
@@ -335,7 +328,7 @@ fun MiniPlayer(
                     }
 
                     IconButton(
-                        onClick = { triggerTrackTransition(isNext = true) },
+                        onClick = onSkipNext,
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
