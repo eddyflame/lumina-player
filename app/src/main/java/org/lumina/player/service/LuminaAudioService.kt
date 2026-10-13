@@ -56,6 +56,20 @@ class LuminaAudioService : MediaSessionService() {
             }
         })
 
+        // 创建前台服务通知渠道 (Android 8.0+)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val notificationManager = getSystemService(android.app.NotificationManager::class.java)
+            val channel = android.app.NotificationChannel(
+                CHANNEL_ID,
+                getString(org.lumina.player.R.string.app_name),
+                android.app.NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Lumina Player playback controls"
+                setShowBadge(false)
+            }
+            notificationManager?.createNotificationChannel(channel)
+        }
+
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -91,8 +105,15 @@ class LuminaAudioService : MediaSessionService() {
             .setAlbumTitle(song.displayAlbum)
             .build()
 
+        // 对于 CUE 分轨，底层播放器必须加载真实的物理音频文件路径，而非带 #cue 标记的虚拟 URI
+        val playableUri = if (song.isVirtualCueTrack && song.filePath.isNotBlank()) {
+            android.net.Uri.fromFile(java.io.File(song.filePath))
+        } else {
+            android.net.Uri.parse(song.uri)
+        }
+
         val mediaItem = MediaItem.Builder()
-            .setUri(song.uri)
+            .setUri(playableUri)
             .setMediaId(song.uri)
             .setMediaMetadata(metadata)
             .apply {
@@ -110,6 +131,10 @@ class LuminaAudioService : MediaSessionService() {
         player.setMediaItem(mediaItem)
         player.prepare()
         player.playWhenReady = playWhenReady
+    }
+
+    companion object {
+        const val CHANNEL_ID = "lumina_player_playback_channel"
     }
 
     override fun onDestroy() {
