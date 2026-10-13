@@ -10,12 +10,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -23,160 +18,97 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.isActive
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * Apple Music Style Fluid Aurora Ambient Visualizer.
- * Completely eliminates fragile geometric line waveforms. Employs volumetric multi-layer
- * diffused neon fluid energy fields that organically breathe, expand, and pulse with musical beats.
- * Physically immune to jitter, distortion, or erratic spasming.
+ * Authentic Siri / Apple Intelligence Luminous Glowing Fluid Aura.
+ * Completely autonomous, serene fluid convection with pure, saturated Apple neon jewel tones.
+ * Independent of raw audio transients for a relaxing, hypnotic, and 100% spasm-free visual experience.
  */
 @Composable
 fun AudioVisualizer(
-    spectrumData: FloatArray,
-    isPlaying: Boolean,
+    spectrumData: FloatArray = FloatArray(0),
+    isPlaying: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    // Dual continuous phase drift angles for natural organic fluid convection
-    val infiniteTransition = rememberInfiniteTransition(label = "aurora_fluid")
-    val phase1 by infiniteTransition.animateFloat(
+    // 3 continuous, asynchronous harmonic phase angles driving the organic Siri orbital convection
+    val infiniteTransition = rememberInfiniteTransition(label = "siri_ambient_aura")
+
+    val phasePrimary by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = (2 * PI).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 14000, easing = LinearEasing),
+            animation = tween(durationMillis = 12000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "phase_primary"
+        label = "siri_phase_primary"
     )
-    val phase2 by infiniteTransition.animateFloat(
+
+    val phaseSecondary by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = (2 * PI).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 9000, easing = LinearEasing),
+            animation = tween(durationMillis = 8000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "phase_secondary"
+        label = "siri_phase_secondary"
     )
 
-    // Continuous smooth interpolation state across animation frames (butter-smooth 60/120Hz gliding)
-    val smoothedSpectrum = remember { FloatArray(24) { 0.04f } }
-    var frameTick by remember { mutableStateOf(0L) }
-
-    LaunchedEffect(isPlaying) {
-        while (isActive) {
-            withFrameNanos { frameNanos ->
-                frameTick = frameNanos
-            }
-        }
-    }
+    val phasePulse by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 6000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "siri_phase_pulse"
+    )
 
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            // Read frameTick to trigger 60/120Hz continuous rendering
-            val _tick = frameTick
-
-            // Exponential fluid damping towards target spectrum on each rendered frame
-            val lerpFactor = 0.08f
-            for (i in smoothedSpectrum.indices) {
-                val target = if (isPlaying && i < spectrumData.size) spectrumData[i] else 0.04f
-                smoothedSpectrum[i] += (target - smoothedSpectrum[i]) * lerpFactor
-            }
-
-            drawAppleMusicFluidAurora(
-                spectrum = smoothedSpectrum,
-                isPlaying = isPlaying,
-                phase1 = phase1,
-                phase2 = phase2
+            drawSiriLuminousAura(
+                phase1 = phasePrimary,
+                phase2 = phaseSecondary,
+                pulse = phasePulse
             )
         }
     }
 }
 
 /**
- * Renders the multi-layer volumetric fluid energy fields with optical translucent blending.
+ * Renders the authentic Apple Siri / Apple Intelligence glowing fluid orb convection.
+ * Features pure saturated jewel tones (Electric Cyan, Vivid Magenta, Royal Violet, Luminous Amber)
+ * overlapping with translucent optical color-mixing against a pristine pure dark canvas.
  */
-private fun DrawScope.drawAppleMusicFluidAurora(
-    spectrum: FloatArray,
-    isPlaying: Boolean,
+private fun DrawScope.drawSiriLuminousAura(
     phase1: Float,
-    phase2: Float
+    phase2: Float,
+    pulse: Float
 ) {
     val width = size.width
     val height = size.height
+    val centerX = width * 0.50f
     val centerY = height * 0.50f
-    val baseOrbRadius = min(width, height) * 0.38f
+    val baseOrbRadius = min(width, height) * 0.40f
 
-    // Extract frequency band energies (smoothed by per-frame damping)
-    val s = spectrum.size
-    val bassEnergy = if (isPlaying && s > 0) {
-        (0 until min(4, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
-    } else 0.04f
-
-    val midEnergy = if (isPlaying && s >= 6) {
-        (4 until min(12, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
-    } else 0.04f
-
-    val trebleEnergy = if (isPlaying && s >= 12) {
-        (12 until s).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
-    } else 0.04f
-
-    val overallEnergy = (bassEnergy * 0.45f + midEnergy * 0.35f + trebleEnergy * 0.20f).coerceIn(0.04f, 1f)
-
-    // 1. Deep Atmospheric Indigo Base Bed (暗夜底盘基底)
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(
-                Color(0xFF1E1B4B).copy(alpha = (0.35f * (0.6f + overallEnergy * 0.4f)).coerceIn(0.1f, 0.6f)),
-                Color(0xFF0F172A).copy(alpha = 0.15f),
-                Color.Transparent
-            ),
-            center = Offset(width * 0.50f, centerY),
-            radius = width * 0.65f
-        ),
-        radius = width * 0.65f,
-        center = Offset(width * 0.50f, centerY)
-    )
-
-    // 2. ORB 1: Amber Gold Bass Pulse Orb (暖金低音脉冲核，核心节拍驱动)
-    val amberX = width * 0.38f + cos(phase1 * 0.8f).toFloat() * 18.dp.toPx()
-    val amberY = centerY + 24.dp.toPx() + sin(phase2).toFloat() * 12.dp.toPx()
-    val amberRadius = baseOrbRadius * (0.85f + bassEnergy * 0.55f)
-    val amberAlpha = (0.42f + bassEnergy * 0.38f).coerceIn(0.20f, 0.80f)
+    // 1. Siri Electric Violet / Royal Purple Orb (深邃电光紫)
+    val violetX = centerX + sin(phase2 * 1.1f + 2.0f).toFloat() * (width * 0.16f)
+    val violetY = centerY + cos(phase1 * 0.9f + 1.5f).toFloat() * (height * 0.13f)
+    val violetRadius = baseOrbRadius * (1.05f + sin(pulse * 0.9f).toFloat() * 0.12f)
+    val violetAlpha = 0.55f + cos(phase2).toFloat() * 0.08f
 
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(
-                Color(0xFFF59E0B).copy(alpha = amberAlpha),
-                Color(0xFFFBBF24).copy(alpha = amberAlpha * 0.70f),
-                Color(0xFFD97706).copy(alpha = amberAlpha * 0.35f),
-                Color.Transparent
-            ),
-            center = Offset(amberX, amberY),
-            radius = amberRadius
-        ),
-        radius = amberRadius,
-        center = Offset(amberX, amberY)
-    )
-
-    // 3. ORB 2: Royal Violet Harmonic Orb (皇家紫罗兰中频流光)
-    val violetX = width * 0.64f + sin(phase1).toFloat() * 22.dp.toPx()
-    val violetY = centerY - 18.dp.toPx() + cos(phase2 * 0.9f).toFloat() * 15.dp.toPx()
-    val violetRadius = baseOrbRadius * (0.95f + midEnergy * 0.50f)
-    val violetAlpha = (0.45f + midEnergy * 0.35f).coerceIn(0.20f, 0.80f)
-
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(
-                Color(0xFF7C3AED).copy(alpha = violetAlpha),
-                Color(0xFF9333EA).copy(alpha = violetAlpha * 0.75f),
-                Color(0xFFC084FC).copy(alpha = violetAlpha * 0.35f),
+                Color(0xFF7000FF).copy(alpha = violetAlpha),
+                Color(0xFF7C3AED).copy(alpha = violetAlpha * 0.75f),
+                Color(0xFFA855F7).copy(alpha = violetAlpha * 0.35f),
                 Color.Transparent
             ),
             center = Offset(violetX, violetY),
@@ -186,38 +118,39 @@ private fun DrawScope.drawAppleMusicFluidAurora(
         center = Offset(violetX, violetY)
     )
 
-    // 4. ORB 3: Neon Cyan Treble Fluid Orb (天青高音极光光斑)
-    val cyanX = width * 0.32f + cos(phase2 * 1.1f).toFloat() * 20.dp.toPx()
-    val cyanY = centerY - 12.dp.toPx() + sin(phase1 * 0.85f).toFloat() * 14.dp.toPx()
-    val cyanRadius = baseOrbRadius * (0.90f + trebleEnergy * 0.50f)
-    val cyanAlpha = (0.48f + trebleEnergy * 0.38f).coerceIn(0.20f, 0.86f)
+    // 2. Siri Luminous Amber / Warm Sunrise Gold Orb (温暖日出金)
+    val amberX = centerX - sin(phase1 * 1.1f - 1.0f).toFloat() * (width * 0.15f)
+    val amberY = centerY + cos(phase2 * 0.8f - 0.5f).toFloat() * (height * 0.11f)
+    val amberRadius = baseOrbRadius * (0.88f + cos(pulse * 0.7f).toFloat() * 0.10f)
+    val amberAlpha = 0.52f + sin(phase1).toFloat() * 0.08f
 
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(
-                Color(0xFF00F5D4).copy(alpha = cyanAlpha),
-                Color(0xFF06B6D4).copy(alpha = cyanAlpha * 0.75f),
-                Color(0xFF38BDF8).copy(alpha = cyanAlpha * 0.38f),
+                Color(0xFFFF9500).copy(alpha = amberAlpha),
+                Color(0xFFFFB800).copy(alpha = amberAlpha * 0.75f),
+                Color(0xFFF59E0B).copy(alpha = amberAlpha * 0.35f),
                 Color.Transparent
             ),
-            center = Offset(cyanX, cyanY),
-            radius = cyanRadius
+            center = Offset(amberX, amberY),
+            radius = amberRadius
         ),
-        radius = cyanRadius,
-        center = Offset(cyanX, cyanY)
+        radius = amberRadius,
+        center = Offset(amberX, amberY)
     )
 
-    // 5. ORB 4: Vivid Magenta Harmonic Core (洋红共鸣微光，交织混色之核)
-    val magentaX = width * 0.52f + sin(phase2 * 0.7f).toFloat() * 16.dp.toPx()
-    val magentaY = centerY + 10.dp.toPx() + cos(phase1 * 1.2f).toFloat() * 10.dp.toPx()
-    val magentaRadius = baseOrbRadius * (0.75f + (midEnergy + bassEnergy) * 0.35f)
-    val magentaAlpha = (0.32f + midEnergy * 0.30f).coerceIn(0.15f, 0.62f)
+    // 3. Siri Vivid Magenta / Hot Pink Orb (标志性明艳洋红)
+    val magentaX = centerX - cos(phase1 * 0.85f + 1.2f).toFloat() * (width * 0.18f)
+    val magentaY = centerY - sin(phase2 + 0.8f).toFloat() * (height * 0.14f)
+    val magentaRadius = baseOrbRadius * (1.00f + cos(pulse * 1.1f).toFloat() * 0.14f)
+    val magentaAlpha = 0.56f + sin(pulse).toFloat() * 0.08f
 
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(
-                Color(0xFFD946EF).copy(alpha = magentaAlpha),
-                Color(0xFFEC4899).copy(alpha = magentaAlpha * 0.60f),
+                Color(0xFFFF2D55).copy(alpha = magentaAlpha),
+                Color(0xFFFF375F).copy(alpha = magentaAlpha * 0.75f),
+                Color(0xFFE024C3).copy(alpha = magentaAlpha * 0.35f),
                 Color.Transparent
             ),
             center = Offset(magentaX, magentaY),
@@ -227,21 +160,41 @@ private fun DrawScope.drawAppleMusicFluidAurora(
         center = Offset(magentaX, magentaY)
     )
 
-    // 6. Central Acoustic Horizon Line (中央声学微光基准丝)
-    drawLine(
-        brush = Brush.horizontalGradient(
+    // 4. Siri Electric Cyan / Bright Aqua Orb (纯净电光天青)
+    val cyanX = centerX + cos(phase1).toFloat() * (width * 0.18f) - sin(phase2 * 0.5f).toFloat() * (width * 0.08f)
+    val cyanY = centerY + sin(phase1).toFloat() * (height * 0.12f)
+    val cyanRadius = baseOrbRadius * (0.95f + sin(pulse).toFloat() * 0.12f)
+    val cyanAlpha = 0.58f + cos(pulse * 0.8f).toFloat() * 0.08f
+
+    drawCircle(
+        brush = Brush.radialGradient(
             colors = listOf(
-                Color.Transparent,
-                Color(0xFF00F5D4).copy(alpha = (0.18f * (0.5f + trebleEnergy * 0.5f)).coerceIn(0.05f, 0.35f)),
-                Color(0xFFC084FC).copy(alpha = (0.28f * (0.5f + midEnergy * 0.5f)).coerceIn(0.05f, 0.45f)),
-                Color(0xFFFBBF24).copy(alpha = (0.22f * (0.5f + bassEnergy * 0.5f)).coerceIn(0.05f, 0.40f)),
+                Color(0xFF00E5FF).copy(alpha = cyanAlpha),
+                Color(0xFF00B4D8).copy(alpha = cyanAlpha * 0.75f),
+                Color(0xFF0284C7).copy(alpha = cyanAlpha * 0.35f),
                 Color.Transparent
             ),
-            startX = 0f,
-            endX = width
+            center = Offset(cyanX, cyanY),
+            radius = cyanRadius
         ),
-        start = Offset(0f, centerY),
-        end = Offset(width, centerY),
-        strokeWidth = 1.dp.toPx()
+        radius = cyanRadius,
+        center = Offset(cyanX, cyanY)
+    )
+
+    // 5. Central Ethereal Luminescence Core (中央融合流光之核)
+    val coreRadius = baseOrbRadius * (0.65f + sin(pulse * 1.2f).toFloat() * 0.08f)
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                Color(0xFFFFFFFF).copy(alpha = 0.28f),
+                Color(0xFFE0F7FA).copy(alpha = 0.22f),
+                Color(0xFFC084FC).copy(alpha = 0.15f),
+                Color.Transparent
+            ),
+            center = Offset(centerX, centerY),
+            radius = coreRadius
+        ),
+        radius = coreRadius,
+        center = Offset(centerX, centerY)
     )
 }

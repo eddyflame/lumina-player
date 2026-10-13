@@ -91,9 +91,9 @@ Lumina Player is engineered to support the widest possible spectrum of local aud
 * **Zero-Strength HAL Passthrough**: Effects (BassBoost, Virtualizer, Equalizer) are only activated in AudioFlinger when non-zero gain is requested, preventing HAL volume intercept collisions on cold start while retaining ~60ms smooth step interpolation during slider adjustments.
 * **Sleep Timer with Soft Fade-Out**: In the last 10 seconds of countdown, master volume gently interpolates down to zero before pausing playback, ensuring comfortable transitions.
 * **Playback Mode & State Persistence**: Seamlessly restores play mode (repeat/shuffle), track index, and position on app restart with muted cold-start preroll.
-* **High-Performance Dedicated FFT Rhythm Visualizer**:
-  * Real-time 24-band spectrum extraction with gentle organic DSP damping (`attack = 0.16`, `decay = 0.94`), 3-tap spatial Gaussian neighbor filtering (`[0.25, 0.50, 0.25]`), and perceptual power-curve loudness compression (`pow(magnitude, 0.82)`), coupled with continuous 60/120Hz per-frame exponential UI damping (`lerpFactor = 0.08`), completely eliminating high-frequency spikes and jitter while preserving fluid music reactivity.
-  * Signature **Apple Music Fluid Aurora Ambient Visualizer**: Completely eliminates fragile geometric line waveforms. Employs 4 volumetric diffused neon fluid energy fields (Amber Gold bass pulse orb, Royal Violet harmonic orb, Neon Cyan treble fluid orb, and Vivid Magenta resonance core) that organically breathe, expand, and pulse with musical beats on an atmospheric deep indigo bed with a 1dp acoustic horizon line, physically immune to jitter or geometric distortion.
+* **Autonomous Luminous Fluid Aura Visualizer**:
+  * Employs authentic **Apple Siri / Apple Intelligence** glowing fluid orb dynamics with pure saturated neon jewel tones (Electric Cyan `#00E5FF`, Vivid Magenta `#FF2D55`, Royal Violet `#7000FF`, Luminous Amber `#FF9500`, and a central ethereal luminescence core).
+  * 3 continuous, asynchronous harmonic phase drift engines drive an organic figure-8 Lissajous convection entirely independent of raw audio transients, completely eliminating spasms, jitter, and erratic motion while providing a serene, hypnotic ambient aesthetic against a pure dark canvas.
   * Integrated as a dedicated 1st-class central stage view mode in `FullPlayerScreen` (`VINYL_DISC` ⇋ `LYRICS` ⇋ `VISUALIZER`).
 
 ### 4.3 Zero-Reflection Reactive Persistence & Playlist Management (`MusicDatabase`)
