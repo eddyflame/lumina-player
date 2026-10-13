@@ -235,7 +235,7 @@ fun SettingsBottomSheet(
             // About Lumina Player and Author Information (Author eddy)
             val context = LocalContext.current
             val versionName = remember {
-                runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "0.1.2"
+                runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "0.1.3"
             }
 
             Surface(

@@ -153,6 +153,23 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
                         }
                         db.insertWithOnConflict(TABLE_SONGS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
                     }
+
+                    // Prune dead tracks whose files no longer exist on storage
+                    val pruneCursor = db.query(TABLE_SONGS, arrayOf(COL_URI, COL_FILE_PATH), null, null, null, null, null)
+                    val deadUris = mutableListOf<String>()
+                    pruneCursor.use {
+                        while (it.moveToNext()) {
+                            val uri = it.getString(0)
+                            val path = it.getString(1)
+                            if (!path.isNullOrBlank() && !java.io.File(path).exists()) {
+                                deadUris.add(uri)
+                            }
+                        }
+                    }
+                    for (deadUri in deadUris) {
+                        db.delete(TABLE_SONGS, "$COL_URI = ?", arrayOf(deadUri))
+                    }
+
                     db.setTransactionSuccessful()
                 } finally {
                     db.endTransaction()

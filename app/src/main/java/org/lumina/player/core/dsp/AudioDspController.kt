@@ -58,14 +58,18 @@ class AudioDspController {
                     }
                 }
             }
+        }
 
+        runCatching {
             bassBoost = BassBoost(0, audioSessionId).apply {
                 enabled = isEnabled
                 if (strengthSupported) {
                     setStrength(bassBoostStrength)
                 }
             }
+        }
 
+        runCatching {
             virtualizer = Virtualizer(0, audioSessionId).apply {
                 enabled = isEnabled
                 if (strengthSupported) {

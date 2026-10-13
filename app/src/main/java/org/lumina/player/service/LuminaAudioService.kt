@@ -213,10 +213,14 @@ class LuminaAudioService : Service() {
     }
 
     override fun onDestroy() {
-        mediaSession?.run {
-            player.release()
-            release()
+        runCatching {
+            mediaSession?.release()
             mediaSession = null
+        }
+        runCatching {
+            if (::player.isInitialized) {
+                player.release()
+            }
         }
         dspController.release()
         runCatching {

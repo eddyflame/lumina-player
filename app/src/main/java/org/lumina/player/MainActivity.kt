@@ -226,7 +226,18 @@ fun LuminaPlayerApp(
                         app.playerController.playSong(shuffled.first(), shuffled)
                     }
                 },
-                onCreatePlaylist = { name -> app.repository.createPlaylist(name) }
+                onCreatePlaylist = { name -> app.repository.createPlaylist(name) },
+                onPlaylistClick = { playlist ->
+                    coroutineScope.launch {
+                        val pSongs = app.repository.getPlaylistSongs(playlist.id)
+                        if (pSongs.isNotEmpty()) {
+                            app.playerController.playSong(pSongs.first(), pSongs)
+                        }
+                    }
+                },
+                onDeletePlaylist = { playlist ->
+                    app.repository.deletePlaylist(playlist.id)
+                }
             )
 
             // Fullscreen vinyl & lyrics player screen

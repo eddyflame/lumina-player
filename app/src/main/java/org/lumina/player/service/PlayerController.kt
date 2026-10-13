@@ -78,6 +78,7 @@ class PlayerController(
 
     private var positionTrackerJob: Job? = null
     private var sleepTimerJob: Job? = null
+    private var metadataJob: Job? = null
     private var stopAtEndOfTrack = false
 
     private val serviceConnection = object : ServiceConnection {
@@ -87,7 +88,12 @@ class PlayerController(
             service?.player?.addListener(playerListener)
             _currentSong.value?.let { pendingSong ->
                 if (service?.player?.currentMediaItem == null) {
-                    service?.prepareSong(pendingSong, playWhenReady = true)
+                    val shouldPlay = _isPlaying.value
+                    service?.prepareSong(pendingSong, playWhenReady = shouldPlay)
+                    val pos = _currentPositionMs.value
+                    if (pos > 0) {
+                        service?.player?.seekTo(pos)
+                    }
                 }
             }
         }
@@ -130,6 +136,13 @@ class PlayerController(
 
     init {
         bindAudioService()
+        scope.launch {
+            repository.songsFlow.collect { songs ->
+                if (_currentSong.value == null && songs.isNotEmpty()) {
+                    restoreLastPlaybackState(songs)
+                }
+            }
+        }
     }
 
     private fun bindAudioService() {
@@ -173,26 +186,33 @@ class PlayerController(
         audioPrefs?.setLastQueueUris(_queue.value.map { it.uri })
 
         // Load artwork, lyrics, and technical audio parameters asynchronously
-        scope.launch(Dispatchers.IO) {
+        metadataJob?.cancel()
+        metadataJob = scope.launch(Dispatchers.IO) {
             val art = AudioTagReader.extractArtwork(context, song.uri, song.filePath)
+            if (_currentSong.value?.uri != song.uri) return@launch
             val artBytes = art?.let { bitmap ->
                 val stream = java.io.ByteArrayOutputStream()
                 bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, stream)
                 stream.toByteArray()
             }
+            if (_currentSong.value?.uri != song.uri) return@launch
             withContext(Dispatchers.Main) {
-                _currentArtwork.value = art
-                notifyWidgetUpdate()
-                if (artBytes != null) {
-                    service?.updateArtwork(artBytes)
+                if (_currentSong.value?.uri == song.uri) {
+                    _currentArtwork.value = art
+                    notifyWidgetUpdate()
+                    if (artBytes != null) {
+                        service?.updateArtwork(artBytes)
+                    }
                 }
             }
 
             val meta = AudioTagReader.extractMetadata(context, song.uri, song.filePath)
+            if (_currentSong.value?.uri != song.uri) return@launch
             _currentTechInfo.value = meta.technicalInfo
 
             val lyricsText = meta.embeddedLyrics ?: AudioTagReader.findExternalLrc(song.filePath)
             val parsed = if (!lyricsText.isNullOrBlank()) LrcParser.parse(lyricsText) else emptyList()
+            if (_currentSong.value?.uri != song.uri) return@launch
             _currentLyrics.value = parsed
 
             // Record song play count
@@ -258,7 +278,17 @@ class PlayerController(
         if (q.isEmpty()) return
 
         val nextIndex = when (_playMode.value) {
-            PlayMode.SHUFFLE -> Random.nextInt(q.size)
+            PlayMode.SHUFFLE -> {
+                if (q.size > 1) {
+                    var r = Random.nextInt(q.size)
+                    while (r == _queueIndex.value) {
+                        r = Random.nextInt(q.size)
+                    }
+                    r
+                } else {
+                    0
+                }
+            }
             PlayMode.REPEAT_ONE -> _queueIndex.value
             PlayMode.REPEAT_ALL, PlayMode.SEQUENTIAL -> (_queueIndex.value + 1) % q.size
         }
@@ -279,7 +309,17 @@ class PlayerController(
         }
 
         val prevIndex = when (_playMode.value) {
-            PlayMode.SHUFFLE -> Random.nextInt(q.size)
+            PlayMode.SHUFFLE -> {
+                if (q.size > 1) {
+                    var r = Random.nextInt(q.size)
+                    while (r == _queueIndex.value) {
+                        r = Random.nextInt(q.size)
+                    }
+                    r
+                } else {
+                    0
+                }
+            }
             PlayMode.REPEAT_ONE -> _queueIndex.value
             PlayMode.REPEAT_ALL, PlayMode.SEQUENTIAL -> {
                 if (_queueIndex.value - 1 < 0) q.size - 1 else _queueIndex.value - 1
@@ -325,11 +365,14 @@ class PlayerController(
             } else if (index < _queueIndex.value) {
                 _queueIndex.value -= 1
             }
+            notifyWidgetUpdate()
         }
     }
 
     fun clearQueue() {
         service?.player?.stop()
+        metadataJob?.cancel()
+        cancelSleepTimer()
         _queue.value = emptyList()
         _queueIndex.value = -1
         _currentSong.value = null
@@ -458,16 +501,22 @@ class PlayerController(
         notifyWidgetUpdate()
 
         // Silently preload artwork, lyrics, and metadata in the background
-        scope.launch(Dispatchers.IO) {
+        metadataJob?.cancel()
+        metadataJob = scope.launch(Dispatchers.IO) {
             val art = AudioTagReader.extractArtwork(context, targetSong.uri, targetSong.filePath)
+            if (_currentSong.value?.uri != targetSong.uri) return@launch
             val meta = AudioTagReader.extractMetadata(context, targetSong.uri, targetSong.filePath)
+            if (_currentSong.value?.uri != targetSong.uri) return@launch
             val lyricsText = meta.embeddedLyrics ?: AudioTagReader.findExternalLrc(targetSong.filePath)
             val parsed = if (!lyricsText.isNullOrBlank()) LrcParser.parse(lyricsText) else emptyList()
+            if (_currentSong.value?.uri != targetSong.uri) return@launch
             withContext(Dispatchers.Main) {
-                _currentArtwork.value = art
-                _currentTechInfo.value = meta.technicalInfo
-                _currentLyrics.value = parsed
-                notifyWidgetUpdate()
+                if (_currentSong.value?.uri == targetSong.uri) {
+                    _currentArtwork.value = art
+                    _currentTechInfo.value = meta.technicalInfo
+                    _currentLyrics.value = parsed
+                    notifyWidgetUpdate()
+                }
             }
         }
     }

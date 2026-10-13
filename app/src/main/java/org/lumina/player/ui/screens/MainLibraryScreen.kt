@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
@@ -112,6 +113,8 @@ fun MainLibraryScreen(
     onOpenEqualizer: () -> Unit,
     onShuffleAll: (List<Song>) -> Unit,
     onCreatePlaylist: (String) -> Unit,
+    onPlaylistClick: (Playlist) -> Unit = {},
+    onDeletePlaylist: (Playlist) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -320,7 +323,9 @@ fun MainLibraryScreen(
                     onOpenMostPlayed = {
                         if (mostPlayed.isNotEmpty()) onSongClick(mostPlayed.first(), mostPlayed)
                     },
-                    onCreatePlaylistClick = { showNewPlaylistDialog = true }
+                    onCreatePlaylistClick = { showNewPlaylistDialog = true },
+                    onPlaylistClick = onPlaylistClick,
+                    onDeletePlaylist = onDeletePlaylist
                 )
             }
         }
@@ -512,7 +517,7 @@ private fun AlbumsTab(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize()
     ) {
-        items(albums, key = { it.title }) { album ->
+        items(albums, key = { "${it.id}_${it.title}_${it.artist}" }) { album ->
             Card(
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -678,7 +683,9 @@ private fun PlaylistsTab(
     onOpenFavorites: () -> Unit,
     onOpenRecent: () -> Unit,
     onOpenMostPlayed: () -> Unit,
-    onCreatePlaylistClick: () -> Unit
+    onCreatePlaylistClick: () -> Unit,
+    onPlaylistClick: (Playlist) -> Unit = {},
+    onDeletePlaylist: (Playlist) -> Unit = {}
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         // Smart playlist quick access section
@@ -737,7 +744,8 @@ private fun PlaylistsTab(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .clickable { onPlaylistClick(playlist) },
                 shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
@@ -762,6 +770,14 @@ private fun PlaylistsTab(
                             text = "${playlist.songCount} songs",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = { onDeletePlaylist(playlist) }) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }

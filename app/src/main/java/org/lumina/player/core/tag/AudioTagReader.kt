@@ -117,7 +117,22 @@ object AudioTagReader {
             }
             val pictureBytes = retriever.embeddedPicture
             if (pictureBytes != null && pictureBytes.isNotEmpty()) {
-                BitmapFactory.decodeByteArray(pictureBytes, 0, pictureBytes.size)
+                // Decode bounds first to calculate safe inSampleSize against excessive RAM usage
+                val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(pictureBytes, 0, pictureBytes.size, boundsOptions)
+                
+                var sampleSize = 1
+                val maxDimension = 1024
+                while (boundsOptions.outWidth / (sampleSize * 2) >= maxDimension && 
+                       boundsOptions.outHeight / (sampleSize * 2) >= maxDimension) {
+                    sampleSize *= 2
+                }
+
+                val decodeOptions = BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                BitmapFactory.decodeByteArray(pictureBytes, 0, pictureBytes.size, decodeOptions)
             } else {
                 null
             }
