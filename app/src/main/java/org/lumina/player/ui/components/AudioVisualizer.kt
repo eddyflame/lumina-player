@@ -25,6 +25,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -86,6 +88,18 @@ fun AudioVisualizer(
         label = "phase_drift"
     )
 
+    // Continuous smooth interpolation state across animation frames (butter-smooth 60/120Hz gliding)
+    val smoothedSpectrum = remember { FloatArray(24) { 0.04f } }
+    var frameTick by remember { mutableStateOf(0L) }
+
+    LaunchedEffect(isPlaying) {
+        while (isActive) {
+            withFrameNanos { frameNanos ->
+                frameTick = frameNanos
+            }
+        }
+    }
+
     // Temporary toast indicator when user switches visualizer style
     var showStyleBadge by remember { mutableStateOf(false) }
     var currentBadgeStyle by remember { mutableStateOf(style) }
@@ -108,10 +122,20 @@ fun AudioVisualizer(
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
+            // Read frameTick to trigger 60/120Hz continuous drawing
+            val _tick = frameTick
+
+            // Exponential fluid damping towards target spectrum on each rendered frame (eliminates all jitter)
+            val lerpFactor = 0.08f
+            for (i in smoothedSpectrum.indices) {
+                val target = if (isPlaying && i < spectrumData.size) spectrumData[i] else 0.04f
+                smoothedSpectrum[i] += (target - smoothedSpectrum[i]) * lerpFactor
+            }
+
             when (style) {
                 VisualizerStyle.AURORA_WAVES -> {
                     drawAuroraWaves(
-                        spectrum = spectrumData,
+                        spectrum = smoothedSpectrum,
                         isPlaying = isPlaying,
                         phase = phaseAngle,
                         primaryColor = primaryColor,
@@ -120,7 +144,7 @@ fun AudioVisualizer(
                 }
                 VisualizerStyle.NEON_HALO -> {
                     drawNeonHalo(
-                        spectrum = spectrumData,
+                        spectrum = smoothedSpectrum,
                         isPlaying = isPlaying,
                         phase = phaseAngle,
                         primaryColor = primaryColor,
@@ -129,7 +153,7 @@ fun AudioVisualizer(
                 }
                 VisualizerStyle.CRYSTAL_SPECTRUM -> {
                     drawCrystalSpectrum(
-                        spectrum = spectrumData,
+                        spectrum = smoothedSpectrum,
                         isPlaying = isPlaying,
                         primaryColor = primaryColor,
                         accentColor = accentColor
@@ -137,7 +161,7 @@ fun AudioVisualizer(
                 }
                 VisualizerStyle.REACTIVE_LIGHT_STRIP -> {
                     drawReactiveLightStrip(
-                        spectrum = spectrumData,
+                        spectrum = smoothedSpectrum,
                         isPlaying = isPlaying,
                         primaryColor = primaryColor,
                         accentColor = accentColor
@@ -230,8 +254,8 @@ private fun appendClosedSpline(path: Path, points: List<Offset>) {
 }
 
 /**
- * 1. Fluid Aurora Waves: Multi-layer volumetric Bezier fluid ribbon with luminous gradient fill and ambient glow.
- * Anchored nodes prevent horizontal crawling; smooth cubic splines eliminate twitching.
+ * 1. Fluid Aurora Waves: Symmetrical color-gradient acoustic waveform with gentle organic breathing.
+ * Fixed anchor nodes eliminate horizontal jitter; restrained amplitude guarantees gentle undulations.
  */
 private fun DrawScope.drawAuroraWaves(
     spectrum: FloatArray,
@@ -242,156 +266,158 @@ private fun DrawScope.drawAuroraWaves(
 ) {
     val width = size.width
     val height = size.height
-    val centerY = height * 0.52f
-    val maxLift = height * 0.28f
-    val baseThickness = 34.dp.toPx()
-    val maxThickness = 82.dp.toPx()
-    val idleFloat = height * 0.035f
+    val centerY = height * 0.50f
 
-    // 7 horizontal anchor nodes across the screen width (fixed X positions, zero crawling)
-    val nodeFractions = floatArrayOf(0.00f, 0.16f, 0.35f, 0.50f, 0.65f, 0.84f, 1.00f)
-    val nodeEnergies = FloatArray(7)
+    // Restrained amplitude for gentle, serene breathing (轻微波动, no thrashing)
+    val baseAmplitude = 12.dp.toPx()
+    val maxDynamicAmplitude = 24.dp.toPx()
+    val breathAmplitude = 4.5.dp.toPx()
+
+    // 9 horizontal anchor nodes across the screen width (fixed X positions, zero crawling)
+    val nodeFractions = floatArrayOf(0.00f, 0.125f, 0.25f, 0.375f, 0.50f, 0.625f, 0.75f, 0.875f, 1.00f)
+    val nodeEnergies = FloatArray(9)
 
     if (isPlaying && spectrum.isNotEmpty()) {
         val s = spectrum.size
-        val bassAvg = (0 until min(3, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
-        nodeEnergies[0] = bassAvg * 0.40f
-        nodeEnergies[1] = (0 until min(4, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
-        nodeEnergies[2] = (3 until min(8, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
-        nodeEnergies[3] = (7 until min(14, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
-        nodeEnergies[4] = (12 until min(18, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
-        nodeEnergies[5] = (17 until s).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
-        nodeEnergies[6] = nodeEnergies[5] * 0.40f
+        nodeEnergies[0] = (spectrum[0] * 0.25f).coerceIn(0.04f, 1f)
+        nodeEnergies[1] = (0 until min(3, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
+        nodeEnergies[2] = (2 until min(6, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
+        nodeEnergies[3] = (5 until min(10, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
+        nodeEnergies[4] = (9 until min(14, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
+        nodeEnergies[5] = (13 until min(18, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
+        nodeEnergies[6] = (17 until min(21, s)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
+        nodeEnergies[7] = (20 until s).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
+        nodeEnergies[8] = (nodeEnergies[7] * 0.25f).coerceIn(0.04f, 1f)
     } else {
-        for (i in 0..6) nodeEnergies[i] = 0.05f
+        for (i in 0..8) nodeEnergies[i] = 0.04f
     }
 
     val overallEnergy = nodeEnergies.average().toFloat().coerceIn(0.04f, 1f)
-    val bassEnergy = nodeEnergies[1]
-    val trebleEnergy = nodeEnergies[5]
 
     // 1. Ambient Background Radial Glow
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(
-                DeepViolet.copy(alpha = 0.32f * overallEnergy),
-                NeonCyan.copy(alpha = 0.14f * overallEnergy),
+                DeepViolet.copy(alpha = 0.20f * overallEnergy),
+                NeonCyan.copy(alpha = 0.08f * overallEnergy),
                 Color.Transparent
             ),
             center = Offset(width * 0.5f, centerY),
-            radius = width * 0.65f
+            radius = width * 0.60f
         ),
-        radius = width * 0.65f,
+        radius = width * 0.60f,
         center = Offset(width * 0.5f, centerY)
     )
 
-    // 2. Secondary Translucent Weaving Veil (Back Ribbon)
-    val secTopPoints = ArrayList<Offset>(7)
-    val secBottomPoints = ArrayList<Offset>(7)
-    val secBaseThickness = 22.dp.toPx()
-    val secMaxThickness = 56.dp.toPx()
+    // 2. Central Reference Acoustic Guideline (柔和中轴基线)
+    drawLine(
+        brush = Brush.horizontalGradient(
+            colors = listOf(
+                Color.Transparent,
+                NeonCyan.copy(alpha = 0.15f),
+                DeepViolet.copy(alpha = 0.22f),
+                WarmAmber.copy(alpha = 0.15f),
+                Color.Transparent
+            ),
+            startX = 0f,
+            endX = width
+        ),
+        start = Offset(0f, centerY),
+        end = Offset(width, centerY),
+        strokeWidth = 1.dp.toPx()
+    )
 
-    for (i in 0..6) {
+    // 3. Diffuse Background Glow Wave (柔和背景弥散波形)
+    val bgTopPoints = ArrayList<Offset>(9)
+    val bgBottomPoints = ArrayList<Offset>(9)
+
+    for (i in 0..8) {
         val x = width * nodeFractions[i]
         val energy = nodeEnergies[i]
-        val idle = cos(phase * 0.9f + i * 0.75f).toFloat() * (idleFloat * 0.8f)
-        val lift = -energy * maxLift * 0.65f
-        val nodeCenterY = centerY + 16.dp.toPx() + idle + lift
-        val thickness = secBaseThickness + energy * secMaxThickness
+        val breath = cos(phase * 0.85f + i * 0.5f).toFloat() * (breathAmplitude * 0.8f)
+        val waveAmp = (baseAmplitude + energy * maxDynamicAmplitude) * 1.45f
 
-        secTopPoints.add(Offset(x, nodeCenterY - thickness * 0.5f))
-        secBottomPoints.add(Offset(x, nodeCenterY + thickness * 0.5f))
+        val yTop = centerY + breath - waveAmp
+        val yBottom = centerY + breath + waveAmp * 0.65f
+
+        bgTopPoints.add(Offset(x, yTop))
+        bgBottomPoints.add(Offset(x, yBottom))
     }
 
-    val secRibbonPath = Path()
-    appendSpline(secRibbonPath, secTopPoints, isReverse = false)
-    secRibbonPath.lineTo(secBottomPoints.last().x, secBottomPoints.last().y)
-    appendSpline(secRibbonPath, secBottomPoints, isReverse = true)
-    secRibbonPath.close()
+    val bgWavePath = Path()
+    appendSpline(bgWavePath, bgTopPoints, isReverse = false)
+    bgWavePath.lineTo(bgBottomPoints.last().x, bgBottomPoints.last().y)
+    appendSpline(bgWavePath, bgBottomPoints, isReverse = true)
+    bgWavePath.close()
 
-    val secBrush = Brush.horizontalGradient(
+    val bgBrush = Brush.horizontalGradient(
         colors = listOf(
-            NeonCyan.copy(alpha = 0.30f),
-            ElectricBlue.copy(alpha = 0.38f),
-            DeepViolet.copy(alpha = 0.36f),
-            VividMagenta.copy(alpha = 0.34f),
-            WarmAmber.copy(alpha = 0.30f)
+            NeonCyan.copy(alpha = 0.16f),
+            ElectricBlue.copy(alpha = 0.20f),
+            DeepViolet.copy(alpha = 0.22f),
+            VividMagenta.copy(alpha = 0.20f),
+            WarmAmber.copy(alpha = 0.16f)
         ),
         startX = 0f,
         endX = width
     )
-    drawPath(path = secRibbonPath, brush = secBrush)
+    drawPath(path = bgWavePath, brush = bgBrush)
 
-    // 3. Primary Volumetric Aurora Ribbon (Main Ribbon)
-    val topPoints = ArrayList<Offset>(7)
-    val bottomPoints = ArrayList<Offset>(7)
+    // 4. Primary Color-Gradient Waveform (色彩渐变波形主体)
+    val topPoints = ArrayList<Offset>(9)
+    val bottomPoints = ArrayList<Offset>(9)
 
-    for (i in 0..6) {
+    for (i in 0..8) {
         val x = width * nodeFractions[i]
         val energy = nodeEnergies[i]
-        val idle = sin(phase + i * 0.85f).toFloat() * idleFloat
-        val lift = -energy * maxLift
-        val nodeCenterY = centerY + idle + lift
-        val thickness = baseThickness + energy * maxThickness
+        val breath = sin(phase + i * 0.55f).toFloat() * breathAmplitude
+        val waveAmp = baseAmplitude + energy * maxDynamicAmplitude
 
-        topPoints.add(Offset(x, nodeCenterY - thickness * 0.5f))
-        bottomPoints.add(Offset(x, nodeCenterY + thickness * 0.5f))
+        val yTop = centerY + breath - waveAmp
+        val yBottom = centerY + breath + waveAmp * 0.65f
+
+        topPoints.add(Offset(x, yTop))
+        bottomPoints.add(Offset(x, yBottom))
     }
 
-    val primaryRibbonPath = Path()
-    appendSpline(primaryRibbonPath, topPoints, isReverse = false)
-    primaryRibbonPath.lineTo(bottomPoints.last().x, bottomPoints.last().y)
-    appendSpline(primaryRibbonPath, bottomPoints, isReverse = true)
-    primaryRibbonPath.close()
+    val mainWavePath = Path()
+    appendSpline(mainWavePath, topPoints, isReverse = false)
+    mainWavePath.lineTo(bottomPoints.last().x, bottomPoints.last().y)
+    appendSpline(mainWavePath, bottomPoints, isReverse = true)
+    mainWavePath.close()
 
-    val primaryBrush = Brush.horizontalGradient(
+    val waveGradientBrush = Brush.horizontalGradient(
         colors = listOf(
-            NeonCyan.copy(alpha = 0.88f),
-            ElectricBlue.copy(alpha = 0.82f),
-            DeepViolet.copy(alpha = 0.90f),
-            VividMagenta.copy(alpha = 0.86f),
-            WarmAmber.copy(alpha = 0.84f)
+            Color(0xFF00F5D4).copy(alpha = 0.78f), // Luminous Neon Teal
+            Color(0xFF06B6D4).copy(alpha = 0.76f), // Electric Cyan
+            Color(0xFF3B82F6).copy(alpha = 0.80f), // Royal Blue
+            Color(0xFF8B5CF6).copy(alpha = 0.84f), // Vivid Purple
+            Color(0xFFEC4899).copy(alpha = 0.80f), // Hot Magenta
+            Color(0xFFF59E0B).copy(alpha = 0.78f)  // Golden Amber
         ),
         startX = 0f,
         endX = width
     )
-    drawPath(path = primaryRibbonPath, brush = primaryBrush)
+    drawPath(path = mainWavePath, brush = waveGradientBrush)
 
-    // 4. Luminous Crest Highlight Filament (Top Edge Glow)
+    // 5. Luminous Crest Highlight Filament (波形高光边缘发光丝)
     val crestPath = Path()
     appendSpline(crestPath, topPoints, isReverse = false)
     drawPath(
         path = crestPath,
         brush = Brush.horizontalGradient(
             colors = listOf(
-                Color(0xFFE0F7FA).copy(alpha = 0.95f),
-                Color(0xFF67E8F9),
-                Color(0xFFF3E8FF),
-                Color(0xFFFEF08A).copy(alpha = 0.95f)
+                Color(0xFFE0F7FA), // Crisp ice white
+                Color(0xFF67E8F9), // Luminous cyan
+                Color(0xFFDDD6FE), // Lavender
+                Color(0xFFFBCFE8), // Pink
+                Color(0xFFFEF08A)  // Gold
             ),
             startX = 0f,
             endX = width
         ),
-        style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
+        style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
     )
-
-    // 5. Floating Ambient Stardust Particles
-    val particleCount = 14
-    for (i in 0 until particleCount) {
-        val fx = 0.06f + (i.toFloat() / (particleCount - 1)) * 0.88f
-        val px = width * fx
-        val pIdle = sin(phase * 0.65f + i * 1.35f).toFloat() * (height * 0.28f)
-        val py = centerY + pIdle
-        val pRadius = (2.2.dp.toPx() + (i % 3) * 1.2.dp.toPx()) * (1f + trebleEnergy * 0.5f)
-        val pAlpha = (0.35f + (i % 3) * 0.18f + bassEnergy * 0.25f).coerceIn(0.15f, 0.95f)
-        val pColor = if (i % 2 == 0) NeonCyan.copy(alpha = pAlpha) else HiResGold.copy(alpha = pAlpha)
-
-        drawCircle(
-            color = pColor,
-            radius = pRadius,
-            center = Offset(px, py)
-        )
-    }
 }
 
 /**
@@ -406,7 +432,7 @@ private fun DrawScope.drawNeonHalo(
 ) {
     val center = Offset(size.width / 2f, size.height / 2f)
     val baseRadius = min(size.width, size.height) * 0.28f
-    val maxDeltaR = baseRadius * 0.45f
+    val maxDeltaR = baseRadius * 0.16f
 
     val bassMagnitude = if (isPlaying && spectrum.isNotEmpty()) {
         (0 until min(4, spectrum.size)).map { spectrum[it] }.average().toFloat().coerceIn(0.04f, 1f)
@@ -417,27 +443,27 @@ private fun DrawScope.drawNeonHalo(
     } else 0.04f
 
     // 1. Center pulsing core glow
-    val coreRadius = baseRadius * (0.40f + bassMagnitude * 0.25f)
+    val coreRadius = baseRadius * (0.40f + bassMagnitude * 0.15f)
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(
-                DeepViolet.copy(alpha = 0.40f + bassMagnitude * 0.35f),
-                NeonCyan.copy(alpha = 0.18f),
+                DeepViolet.copy(alpha = 0.30f + bassMagnitude * 0.20f),
+                NeonCyan.copy(alpha = 0.12f),
                 Color.Transparent
             ),
             center = center,
-            radius = coreRadius * 2.2f
+            radius = coreRadius * 2.0f
         ),
-        radius = coreRadius * 2.2f,
+        radius = coreRadius * 2.0f,
         center = center
     )
 
     // 2. Inner concentric breathing ring
     drawCircle(
-        color = NeonCyan.copy(alpha = 0.30f + bassMagnitude * 0.30f),
-        radius = baseRadius * 0.68f + bassMagnitude * 12.dp.toPx(),
+        color = NeonCyan.copy(alpha = 0.25f + bassMagnitude * 0.20f),
+        radius = baseRadius * 0.70f + bassMagnitude * 6.dp.toPx(),
         center = center,
-        style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+        style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
     )
 
     // 3. Smooth closed cubic spline halo (16 control nodes around circle)
@@ -445,7 +471,7 @@ private fun DrawScope.drawNeonHalo(
     val ringPoints = ArrayList<Offset>(ringPointCount)
 
     for (i in 0 until ringPointCount) {
-        val angle = (2 * PI * i / ringPointCount + phase * 0.25).toFloat()
+        val angle = (2 * PI * i / ringPointCount + phase * 0.20).toFloat()
         val spectrumIdx = (i * spectrum.size / ringPointCount).coerceIn(0, (spectrum.size - 1).coerceAtLeast(0))
         val mag = if (isPlaying && spectrum.isNotEmpty()) spectrum[spectrumIdx].coerceIn(0.04f, 1f) else 0.04f
         val r = baseRadius + mag * maxDeltaR
@@ -472,38 +498,24 @@ private fun DrawScope.drawNeonHalo(
     drawPath(
         path = haloPath,
         brush = haloGradient,
-        style = Stroke(width = 10.dp.toPx(), cap = StrokeCap.Round),
-        alpha = 0.26f
+        style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round),
+        alpha = 0.22f
     )
 
     // Crisp neon core halo
     drawPath(
         path = haloPath,
         brush = haloGradient,
-        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+        style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
     )
 
     // 4. Outer Ethereal Shimmer Ring
     drawCircle(
-        color = VividMagenta.copy(alpha = 0.22f + trebleMagnitude * 0.35f),
-        radius = baseRadius * 1.32f + trebleMagnitude * 16.dp.toPx(),
+        color = VividMagenta.copy(alpha = 0.18f + trebleMagnitude * 0.20f),
+        radius = baseRadius * 1.28f + trebleMagnitude * 8.dp.toPx(),
         center = center,
-        style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
+        style = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Round)
     )
-
-    // 5. Orbiting luminous stardust beads around peak angles
-    for (i in 0 until 8) {
-        val angle = (2 * PI * i / 8 + phase * 0.35).toFloat()
-        val r = baseRadius * 1.15f + sin(phase + i).toFloat() * 10.dp.toPx()
-        val x = center.x + r * cos(angle)
-        val y = center.y + r * sin(angle)
-        val beadAlpha = (0.45f + trebleMagnitude * 0.45f).coerceIn(0.2f, 1f)
-        drawCircle(
-            color = if (i % 2 == 0) NeonCyan.copy(alpha = beadAlpha) else WarmAmber.copy(alpha = beadAlpha),
-            radius = (3.dp.toPx() + trebleMagnitude * 2.dp.toPx()),
-            center = Offset(x, y)
-        )
-    }
 }
 
 /**
@@ -532,8 +544,8 @@ private fun DrawScope.drawCrystalSpectrum(
             VividMagenta,
             WarmAmber
         ),
-        startY = centerY - canvasHeight * 0.38f,
-        endY = centerY + canvasHeight * 0.38f
+        startY = centerY - canvasHeight * 0.24f,
+        endY = centerY + canvasHeight * 0.24f
     )
 
     for (i in 0 until barCount) {
@@ -543,21 +555,21 @@ private fun DrawScope.drawCrystalSpectrum(
             0.04f
         }
 
-        val halfHeight = (canvasHeight * 0.38f * magnitude).coerceAtLeast(4.dp.toPx())
+        val halfHeight = (canvasHeight * 0.22f * magnitude).coerceAtLeast(3.dp.toPx())
         val x = startX + i * (barWidth + gap)
         val top = centerY - halfHeight
         val bottom = centerY + halfHeight
 
         // Background diffuse ambient glow behind active pillars
-        if (magnitude > 0.15f) {
-            val glowWidth = barWidth * 2.2f
-            val glowTop = top - 6.dp.toPx()
-            val glowBottom = bottom + 6.dp.toPx()
+        if (magnitude > 0.20f) {
+            val glowWidth = barWidth * 2.0f
+            val glowTop = top - 4.dp.toPx()
+            val glowBottom = bottom + 4.dp.toPx()
             drawRoundRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        NeonCyan.copy(alpha = 0.25f * magnitude),
-                        VividMagenta.copy(alpha = 0.20f * magnitude),
+                        NeonCyan.copy(alpha = 0.20f * magnitude),
+                        VividMagenta.copy(alpha = 0.15f * magnitude),
                         Color.Transparent
                     )
                 ),
@@ -576,16 +588,16 @@ private fun DrawScope.drawCrystalSpectrum(
         )
 
         // Floating luminous peak beads on top and bottom
-        if (magnitude > 0.25f) {
+        if (magnitude > 0.30f) {
             drawCircle(
                 color = if (i % 2 == 0) NeonCyan else WarmAmber,
-                radius = barWidth * 0.55f,
-                center = Offset(x + barWidth / 2f, top - 5.dp.toPx())
+                radius = barWidth * 0.45f,
+                center = Offset(x + barWidth / 2f, top - 4.dp.toPx())
             )
             drawCircle(
-                color = VividMagenta.copy(alpha = 0.8f),
-                radius = barWidth * 0.45f,
-                center = Offset(x + barWidth / 2f, bottom + 5.dp.toPx())
+                color = VividMagenta.copy(alpha = 0.7f),
+                radius = barWidth * 0.40f,
+                center = Offset(x + barWidth / 2f, bottom + 4.dp.toPx())
             )
         }
     }
@@ -607,7 +619,7 @@ private fun DrawScope.drawReactiveLightStrip(
 
     // Ambient frosted backplate tube
     val barWidth = totalWidth * 0.90f
-    val barHeight = 48.dp.toPx()
+    val barHeight = 44.dp.toPx()
     drawRoundRect(
         color = Color(0x14FFFFFF),
         topLeft = Offset(centerX - barWidth / 2f, centerY - barHeight / 2f),
@@ -620,14 +632,14 @@ private fun DrawScope.drawReactiveLightStrip(
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(
-                NeonCyan.copy(alpha = 0.35f * centerEnergy),
-                DeepViolet.copy(alpha = 0.15f * centerEnergy),
+                NeonCyan.copy(alpha = 0.28f * centerEnergy),
+                DeepViolet.copy(alpha = 0.12f * centerEnergy),
                 Color.Transparent
             ),
             center = Offset(centerX, centerY),
-            radius = totalWidth * 0.35f
+            radius = totalWidth * 0.30f
         ),
-        radius = totalWidth * 0.35f,
+        radius = totalWidth * 0.30f,
         center = Offset(centerX, centerY)
     )
 
@@ -655,7 +667,7 @@ private fun DrawScope.drawReactiveLightStrip(
     for (i in 0 until halfSegments) {
         val spectrumIdx = (i * spectrum.size / halfSegments).coerceIn(0, (spectrum.size - 1).coerceAtLeast(0))
         val mag = if (isPlaying && spectrum.isNotEmpty()) spectrum[spectrumIdx].coerceIn(0.04f, 1f) else 0.04f
-        val cellHeight = (canvasHeight * 0.32f * mag).coerceAtLeast(6.dp.toPx())
+        val cellHeight = (canvasHeight * 0.18f * mag).coerceAtLeast(5.dp.toPx())
 
         // Right side
         val rightX = centerX + 8.dp.toPx() + i * segmentWidth
@@ -679,12 +691,12 @@ private fun DrawScope.drawReactiveLightStrip(
     // Central glowing anchor diode
     drawCircle(
         color = NeonCyan,
-        radius = (6.dp.toPx() + centerEnergy * 6.dp.toPx()),
+        radius = (5.dp.toPx() + centerEnergy * 4.dp.toPx()),
         center = Offset(centerX, centerY)
     )
     drawCircle(
         color = Color.White,
-        radius = 3.dp.toPx(),
+        radius = 2.5.dp.toPx(),
         center = Offset(centerX, centerY)
     )
 }
