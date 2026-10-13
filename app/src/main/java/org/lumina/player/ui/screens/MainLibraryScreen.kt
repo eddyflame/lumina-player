@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -108,6 +109,7 @@ fun MainLibraryScreen(
     onOpenQueue: () -> Unit,
     onOpenMiniPlayer: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenEqualizer: () -> Unit,
     onCreatePlaylist: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -181,6 +183,9 @@ fun MainLibraryScreen(
                         Row {
                             IconButton(onClick = { isSearchActive = true }) {
                                 Icon(Icons.Default.Search, contentDescription = "Search")
+                            }
+                            IconButton(onClick = onOpenEqualizer) {
+                                Icon(Icons.Default.Tune, contentDescription = stringResource(R.string.equalizer))
                             }
                             Box {
                                 IconButton(onClick = { showSortMenu = true }) {

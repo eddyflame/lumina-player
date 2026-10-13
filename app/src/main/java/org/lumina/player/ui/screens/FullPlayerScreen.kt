@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -225,10 +226,18 @@ fun FullPlayerScreen(
                     }
                 }
 
-                Box {
-                    IconButton(onClick = { showMoreMenu = true }) {
-                        Icon(imageVector = Icons.Default.MoreVert, contentDescription = "More")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showEqualizerDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = stringResource(R.string.equalizer)
+                        )
                     }
+
+                    Box {
+                        IconButton(onClick = { showMoreMenu = true }) {
+                            Icon(imageVector = Icons.Default.MoreVert, contentDescription = "More")
+                        }
 
                     DropdownMenu(
                         expanded = showMoreMenu,
@@ -269,6 +278,7 @@ fun FullPlayerScreen(
                     }
                 }
             }
+        }
 
             Spacer(modifier = Modifier.height(16.dp))
 

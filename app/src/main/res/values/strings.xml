@@ -55,6 +55,7 @@
 
     <!-- Audio Effects & EQ -->
     <string name="equalizer">Equalizer &amp; Effects</string>
+    <string name="audio_effects_desc">10-band EQ, Bass Boost, 3D Virtualizer</string>
     <string name="eq_enable">Enable Equalizer</string>
     <string name="eq_presets">Presets</string>
     <string name="eq_flat">Flat</string>

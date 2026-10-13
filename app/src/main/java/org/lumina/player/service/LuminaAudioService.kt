@@ -75,10 +75,13 @@ class LuminaAudioService : MediaSessionService() {
         // 创建前台服务通知渠道 (Android 8.0+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = getSystemService(NotificationManager::class.java)
+            // 清理旧低优先级通道（低优先级通道在 HyperOS 上无法显示锁屏及灵动岛）
+            runCatching { notificationManager?.deleteNotificationChannel("lumina_player_playback_channel") }
+
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 getString(R.string.app_name),
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Lumina Player playback controls"
                 setShowBadge(false)
@@ -96,6 +99,7 @@ class LuminaAudioService : MediaSessionService() {
             .setChannelName(R.string.app_name)
             .setNotificationId(NOTIFICATION_ID)
             .build()
+        defaultNotificationProvider.setSmallIcon(R.drawable.ic_notification)
 
         setMediaNotificationProvider(LuminaMediaNotificationProvider(this, defaultNotificationProvider))
 
@@ -113,6 +117,16 @@ class LuminaAudioService : MediaSessionService() {
             .setSessionActivity(sessionActivityPendingIntent)
             .setCallback(MediaSessionCallback())
             .build()
+
+        // 关键：必须调用 addSession 才能激活 Media3 内部 MediaNotificationManager 维持前台播控通知
+        addSession(mediaSession!!)
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        mediaSession?.let { session ->
+            onUpdateNotification(session, true)
+        }
+        return super.onStartCommand(intent, flags, startId)
     }
 
     private class LuminaMediaNotificationProvider(
@@ -136,16 +150,20 @@ class LuminaAudioService : MediaSessionService() {
             val notification = mediaNotification.notification
             // 确保锁屏完全可见 (Public visibility on lockscreen)
             notification.visibility = Notification.VISIBILITY_PUBLIC
+            notification.priority = Notification.PRIORITY_MAX
 
             // 适配小米 HyperOS 灵动岛 / 超级岛 / 焦点通知 (HyperIsland / Focus Notification)
             val extras = notification.extras ?: Bundle()
             extras.putBoolean("miui.focus.enable", true)
             extras.putBoolean("miui.focus.media", true)
             extras.putInt("miui.focus.type", 1) // 持续媒体播放服务
+            extras.putBoolean("miui.focus.ongoing", true)
             val title = mediaSession.player.mediaMetadata.title?.toString() ?: ""
             val artist = mediaSession.player.mediaMetadata.artist?.toString() ?: ""
             extras.putString("miui.focus.title", title)
             extras.putString("miui.focus.subtitle", artist)
+            extras.putString("miui.focus.ticker", if (artist.isNotBlank()) "$title - $artist" else title)
+            extras.putBoolean("miui.showActionInCompactView", true)
             notification.extras = extras
 
             return MediaNotification(mediaNotification.notificationId, notification)
@@ -251,6 +269,10 @@ class LuminaAudioService : MediaSessionService() {
         player.setMediaItem(mediaItem)
         player.prepare()
         player.playWhenReady = playWhenReady
+
+        mediaSession?.let { session ->
+            onUpdateNotification(session, true)
+        }
     }
 
     fun updateArtwork(artworkBytes: ByteArray?) {
@@ -262,15 +284,20 @@ class LuminaAudioService : MediaSessionService() {
             .setMediaMetadata(newMetadata)
             .build()
         player.replaceMediaItem(player.currentMediaItemIndex, newItem)
+
+        mediaSession?.let { session ->
+            onUpdateNotification(session, isPlaybackOngoing)
+        }
     }
 
     companion object {
-        const val CHANNEL_ID = "lumina_player_playback_channel"
+        const val CHANNEL_ID = "lumina_player_playback_channel_v2"
         const val NOTIFICATION_ID = 1001
     }
 
     override fun onDestroy() {
         mediaSession?.run {
+            removeSession(this)
             player.release()
             release()
             mediaSession = null

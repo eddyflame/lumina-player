@@ -55,6 +55,7 @@
 
     <!-- 音效与均衡器 -->
     <string name="equalizer">均衡器与音效</string>
+    <string name="audio_effects_desc">10段专业均衡器、低音增强、3D空间环绕</string>
     <string name="eq_enable">启用均衡器</string>
     <string name="eq_presets">预设音效</string>
     <string name="eq_flat">平直</string>

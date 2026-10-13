@@ -7,10 +7,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -88,7 +87,8 @@ fun MiniPlayer(
         val coroutineScope = rememberCoroutineScope()
         val offsetX = remember { Animatable(0f) }
         val density = LocalDensity.current
-        val swipeThresholdPx = with(density) { 50.dp.toPx() }
+        val swipeThresholdPx = with(density) { 48.dp.toPx() }
+        val maxOffsetPx = with(density) { 160.dp.toPx() }
 
         Surface(
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
@@ -98,29 +98,64 @@ fun MiniPlayer(
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                .draggable(
-                    state = rememberDraggableState { delta ->
-                        coroutineScope.launch {
-                            offsetX.snapTo((offsetX.value + delta).coerceIn(-120f, 120f))
-                        }
-                    },
-                    orientation = Orientation.Horizontal,
-                    onDragStarted = {
-                        coroutineScope.launch { offsetX.snapTo(0f) }
-                    },
-                    onDragStopped = {
-                        val current = offsetX.value
-                        coroutineScope.launch {
-                            if (current < -swipeThresholdPx) {
-                                onSkipNext()
-                            } else if (current > swipeThresholdPx) {
-                                onSkipPrevious()
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var isDrag = false
+                        val touchSlop = viewConfiguration.touchSlop
+
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) {
+                                if (!isDrag) {
+                                    // 未发生拖拽且未被子按钮消费，触发点击打开全屏播放器
+                                    if (!change.isConsumed) {
+                                        onClick()
+                                    }
+                                } else {
+                                    // 水平拖动松手，判断滑动阈值
+                                    val current = offsetX.value
+                                    coroutineScope.launch {
+                                        if (current < -swipeThresholdPx) {
+                                            onSkipNext()
+                                        } else if (current > swipeThresholdPx) {
+                                            onSkipPrevious()
+                                        }
+                                        offsetX.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                                    }
+                                }
+                                break
                             }
-                            offsetX.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+
+                            val dragX = change.position.x - down.position.x
+                            val dragY = change.position.y - down.position.y
+
+                            if (!isDrag && (kotlin.math.abs(dragX) > touchSlop || kotlin.math.abs(dragY) > touchSlop)) {
+                                if (kotlin.math.abs(dragX) > kotlin.math.abs(dragY)) {
+                                    isDrag = true
+                                } else {
+                                    // 主要是纵向手势，放弃横向拖拽
+                                    break
+                                }
+                            }
+
+                            if (isDrag) {
+                                change.consume()
+                                val delta = change.position.x - change.previousPosition.x
+                                coroutineScope.launch {
+                                    offsetX.snapTo((offsetX.value + delta).coerceIn(-maxOffsetPx, maxOffsetPx))
+                                }
+                            }
+                        }
+
+                        if (isDrag && offsetX.value != 0f) {
+                            coroutineScope.launch {
+                                offsetX.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                            }
                         }
                     }
-                )
-                .clickable { onClick() }
+                }
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 // 顶部微进度条

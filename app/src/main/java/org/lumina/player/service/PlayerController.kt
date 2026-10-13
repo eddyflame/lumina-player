@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.lumina.player.core.dsp.AudioDspController
 import org.lumina.player.core.lyrics.LyricLine
 import org.lumina.player.core.lyrics.LrcParser
 import org.lumina.player.core.model.AudioTechnicalInfo
@@ -84,6 +85,11 @@ class PlayerController(
             val localBinder = binder as? LuminaAudioService.LocalBinder
             service = localBinder?.getService()
             service?.player?.addListener(playerListener)
+            _currentSong.value?.let { pendingSong ->
+                if (service?.player?.currentMediaItem == null) {
+                    service?.prepareSong(pendingSong, playWhenReady = true)
+                }
+            }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -350,7 +356,9 @@ class PlayerController(
         _sleepTimerRemainingSeconds.value = null
     }
 
-    fun getDspController() = service?.dspController
+    private val fallbackDspController by lazy { AudioDspController() }
+
+    fun getDspController(): AudioDspController = service?.dspController ?: fallbackDspController
 
     private fun onTrackEnded() {
         when (_playMode.value) {

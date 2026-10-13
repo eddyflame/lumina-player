@@ -37,8 +37,8 @@ import org.lumina.player.core.dsp.AudioDspController
 @Composable
 fun EqualizerDialog(
     dspController: AudioDspController?,
-    playbackSpeed: Float,
-    onSetPlaybackSpeed: (Float) -> Unit,
+    playbackSpeed: Float = 1.0f,
+    onSetPlaybackSpeed: (Float) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     var isEnabled by remember { mutableStateOf(dspController?.isEnabled() ?: true) }

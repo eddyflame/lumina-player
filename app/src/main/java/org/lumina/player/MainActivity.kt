@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import org.lumina.player.core.model.AudioFormatType
 import org.lumina.player.core.model.Song
+import org.lumina.player.ui.components.EqualizerDialog
 import org.lumina.player.ui.components.QueueBottomSheet
 import org.lumina.player.ui.screens.FullPlayerScreen
 import org.lumina.player.ui.screens.MainLibraryScreen
@@ -113,6 +114,7 @@ fun LuminaPlayerApp(
     var isFullPlayerOpen by remember { mutableStateOf(false) }
     var isQueueOpen by remember { mutableStateOf(false) }
     var isSettingsOpen by remember { mutableStateOf(false) }
+    var isEqualizerOpen by remember { mutableStateOf(false) }
 
     val queueSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val settingsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -208,6 +210,7 @@ fun LuminaPlayerApp(
                 onOpenQueue = { isQueueOpen = true },
                 onOpenMiniPlayer = { isFullPlayerOpen = true },
                 onOpenSettings = { isSettingsOpen = true },
+                onOpenEqualizer = { isEqualizerOpen = true },
                 onCreatePlaylist = { name -> app.repository.createPlaylist(name) }
             )
 
@@ -296,7 +299,18 @@ fun LuminaPlayerApp(
                         coroutineScope.launch {
                             app.repository.rescan(audioSettings.filterShortAudio)
                         }
-                    }
+                    },
+                    onOpenEqualizer = { isEqualizerOpen = true }
+                )
+            }
+
+            // 独立音效与均衡器调节弹窗
+            if (isEqualizerOpen) {
+                EqualizerDialog(
+                    dspController = app.playerController.getDspController(),
+                    playbackSpeed = playbackSpeed,
+                    onSetPlaybackSpeed = { app.playerController.setPlaybackSpeed(it) },
+                    onDismiss = { isEqualizerOpen = false }
                 )
             }
         }
