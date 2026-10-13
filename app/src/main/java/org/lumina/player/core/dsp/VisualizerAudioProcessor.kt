@@ -64,6 +64,7 @@ class VisualizerAudioProcessor(
 
     // Anti-pop micro soft ramp (35ms smooth raised-cosine gain fade-in on startup, unpause, and seek)
     private var totalRampFrames = (44100 * 35) / 1000
+    @Volatile
     private var rampFramesRemaining = totalRampFrames
 
     private var decayJob: Job? = null

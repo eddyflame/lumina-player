@@ -85,12 +85,14 @@ Lumina Player is engineered to support the widest possible spectrum of local aud
 
 ### 4.2 DSP, Audio Effects & Multi-Tier Anti-Pop Engine
 * **Preallocated Fixed Audio Session ID**: Generates an explicit `audioSessionId` via `AudioManager` on service startup and attaches `AudioDspController` effects synchronously prior to stream initialization, eliminating runtime HAL effect chain insertion glitches.
-* **Master Volume Raised-Cosine Soft Ramp**: Applies a continuous Hann envelope fade-in (~42ms) when resuming or starting playback, and a smooth fade-out (~20ms) when pausing or seeking, completely eliminating DAC capacitor charging spikes and buffer step-function popping.
-* **PCM Buffer Anti-Pop Processor**: `VisualizerAudioProcessor` enforces a 35ms raised-cosine gain envelope directly on decoded audio frames across 16-bit, 24-bit, 32-bit, and Float PCM encodings upon unpause, flush, or seek.
+* **Cold-Start Buffer Stagnation Elimination**: Prevents pre-decoding or pre-buffering audio into Android's `AudioTrack` ring buffer on cold start / state restoration while playback is stopped. ExoPlayer is prepared strictly when the user initiates playback.
+* **Flush-on-Resume Buffer Sanitation**: Resuming paused playback executes `seekTo(pos)` to discard stale, frozen PCM samples left inside the hardware `AudioTrack` buffer during DAC sleep/standby, preventing frozen DC-offset step pops.
+* **Direct PCM Hann Envelope Processor**: `VisualizerAudioProcessor` enforces a 35ms raised-cosine (Hann) gain envelope directly onto raw decoded PCM frames (16-bit, 24-bit, 32-bit, and Float) upon stream startup, unpause, or seek. By scaling audio at sample resolution from pure zero amplitude ($C^1$ continuity), hardware volume zipper noise and discrete AudioFlinger mixer step quantization clicks are completely eliminated.
+* **Constant Hardware Master Volume**: Eliminates coroutine-based discrete stepping of `player.volume` across AudioFlinger mixer multiplier jumps, keeping hardware stream gain smooth.
 * **10-Band Graphic Equalizer**: Connects to the active Android `audioSessionId` with instant preset synchronization and custom curve detection.
 * **Zero-Strength HAL Passthrough**: Effects (BassBoost, Virtualizer, Equalizer) are only activated in AudioFlinger when non-zero gain is requested, preventing HAL volume intercept collisions on cold start while retaining ~60ms smooth step interpolation during slider adjustments.
 * **Sleep Timer with Soft Fade-Out**: In the last 10 seconds of countdown, master volume gently interpolates down to zero before pausing playback, ensuring comfortable transitions.
-* **Playback Mode & State Persistence**: Seamlessly restores play mode (repeat/shuffle), track index, and position on app restart with muted cold-start preroll.
+* **Playback Mode & State Persistence**: Seamlessly restores play mode (repeat/shuffle), track index, and position on app restart without premature audio pipeline allocation.
 * **Dynamic Siri Ambient Fluid Aura Backdrop**:
   * Employs authentic **Apple Siri / Apple Intelligence** glowing fluid orb dynamics with pure saturated neon jewel tones (Electric Cyan `#00E5FF`, Vivid Magenta `#FF2D55`, Royal Violet `#7000FF`, Luminous Amber `#FF9500`, and a central ethereal luminescence core).
   * Driven by a frame-clock monotonic time integration engine (`withFrameNanos`) and continuous harmonic trigonometric functions, completely eliminating periodic restart resets, boundary discontinuities, and visual jerks/twitches.

@@ -53,7 +53,6 @@ class LuminaAudioService : MediaSessionService() {
     val dspController = AudioDspController()
     val visualizerProcessor = org.lumina.player.core.dsp.VisualizerAudioProcessor(barCount = 24)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private var volumeRampJob: Job? = null
 
     private var wakeLock: PowerManager.WakeLock? = null
     private val binder = LocalBinder()
@@ -334,83 +333,38 @@ class LuminaAudioService : MediaSessionService() {
     }
 
     /**
-     * Resumes or starts playback with a raised-cosine micro volume ramp (~42ms)
-     * eliminating DAC capacitor and buffer step popping.
+     * Resumes or starts playback with a smooth Hann envelope anti-pop ramp directly
+     * applied to PCM audio buffers via VisualizerAudioProcessor.
+     * Keeps player.volume at 1.0f to avoid hardware AudioFlinger mixer step quantization clicks.
      */
-    fun playWithRamp(targetVolume: Float = 1.0f) {
-        volumeRampJob?.cancel()
-        visualizerProcessor.triggerSoftRamp()
-        player.volume = 0f
-        player.play()
-        volumeRampJob = serviceScope.launch(Dispatchers.Main) {
-            val steps = 6
-            val stepDelayMs = 7L
-            for (i in 1..steps) {
-                if (!isActive) return@launch
-                val fraction = i.toFloat() / steps.toFloat()
-                val gain = (0.5f - 0.5f * kotlin.math.cos(Math.PI * fraction).toFloat()) * targetVolume
-                player.volume = gain.coerceIn(0f, 1f)
-                delay(stepDelayMs)
+    fun playWithRamp() {
+        if (!player.isPlaying) {
+            val pos = player.currentPosition
+            if (pos > 0) {
+                player.seekTo(pos)
             }
-            player.volume = targetVolume
         }
+        visualizerProcessor.triggerSoftRamp()
+        player.volume = 1.0f
+        player.play()
     }
 
     /**
-     * Pauses playback with a micro volume fade-out (~20ms) to eliminate audio-track
-     * cutoff DC offset click.
+     * Pauses playback cleanly while preserving normal hardware volume level.
      */
     fun pauseWithRamp(onComplete: (() -> Unit)? = null) {
-        if (!player.isPlaying) {
-            player.pause()
-            onComplete?.invoke()
-            return
-        }
-        volumeRampJob?.cancel()
-        volumeRampJob = serviceScope.launch(Dispatchers.Main) {
-            val currentVol = player.volume
-            val steps = 4
-            val stepDelayMs = 5L
-            for (i in 1..steps) {
-                if (!isActive) return@launch
-                val fraction = 1f - (i.toFloat() / steps.toFloat())
-                val gain = (0.5f - 0.5f * kotlin.math.cos(Math.PI * fraction).toFloat()) * currentVol
-                player.volume = gain.coerceIn(0f, 1f)
-                delay(stepDelayMs)
-            }
-            player.pause()
-            player.volume = 0f
-            onComplete?.invoke()
-        }
+        player.pause()
+        player.volume = 1.0f
+        onComplete?.invoke()
     }
 
     /**
-     * Smoothly dips volume during seeking to eliminate PCM decode jump popping.
+     * Smoothly seeks to target position with an anti-pop soft ramp on subsequent decoded frames.
      */
     fun seekWithRamp(positionMs: Long) {
-        volumeRampJob?.cancel()
-        val wasPlaying = player.isPlaying
-        volumeRampJob = serviceScope.launch(Dispatchers.Main) {
-            if (wasPlaying) {
-                player.volume = 0f
-            }
-            player.seekTo(positionMs)
-            visualizerProcessor.triggerSoftRamp()
-            if (wasPlaying) {
-                val steps = 5
-                val stepDelayMs = 7L
-                for (i in 1..steps) {
-                    if (!isActive) return@launch
-                    val fraction = i.toFloat() / steps.toFloat()
-                    val gain = (0.5f - 0.5f * kotlin.math.cos(Math.PI * fraction).toFloat()) * 1.0f
-                    player.volume = gain.coerceIn(0f, 1f)
-                    delay(stepDelayMs)
-                }
-                player.volume = 1.0f
-            } else {
-                player.volume = 0f
-            }
-        }
+        visualizerProcessor.triggerSoftRamp()
+        player.volume = 1.0f
+        player.seekTo(positionMs)
     }
 
     fun prepareSong(song: Song, artworkBytes: ByteArray? = null, playWhenReady: Boolean = true, startPositionMs: Long = 0L) {
@@ -448,16 +402,17 @@ class LuminaAudioService : MediaSessionService() {
             }
             .build()
 
+        player.volume = 1.0f
         player.setMediaItem(mediaItem)
         if (startPositionMs > 0) {
             player.seekTo(startPositionMs)
         }
         player.prepare()
         if (playWhenReady) {
-            playWithRamp()
+            visualizerProcessor.triggerSoftRamp()
+            player.play()
         } else {
             player.playWhenReady = false
-            player.volume = 0f
         }
 
         mediaSession?.let { session ->
@@ -498,7 +453,6 @@ class LuminaAudioService : MediaSessionService() {
                 player.release()
             }
         }
-        volumeRampJob?.cancel()
         dspController.release()
         visualizerProcessor.resetSpectrum()
         serviceScope.cancel()

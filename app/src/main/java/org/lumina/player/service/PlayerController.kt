@@ -87,6 +87,7 @@ class PlayerController(
     private var metadataJob: Job? = null
     private var visualizerJob: Job? = null
     private var stopAtEndOfTrack = false
+    private var pendingPlaySong: Triple<Song, Long, Boolean>? = null
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -101,11 +102,16 @@ class PlayerController(
                 }
             }
 
-            _currentSong.value?.let { pendingSong ->
-                if (service?.player?.currentMediaItem == null) {
-                    val shouldPlay = _isPlaying.value
-                    val pos = _currentPositionMs.value
-                    service?.prepareSong(pendingSong, playWhenReady = shouldPlay, startPositionMs = pos)
+            val pending = pendingPlaySong
+            if (pending != null) {
+                pendingPlaySong = null
+                service?.prepareSong(pending.first, playWhenReady = pending.third, startPositionMs = pending.second)
+            } else {
+                _currentSong.value?.let { pendingSong ->
+                    if (_isPlaying.value && service?.player?.currentMediaItem == null) {
+                        val pos = _currentPositionMs.value
+                        service?.prepareSong(pendingSong, playWhenReady = true, startPositionMs = pos)
+                    }
                 }
             }
         }
@@ -290,7 +296,12 @@ class PlayerController(
             repository.recordPlay(song.uri)
         }
 
-        service?.prepareSong(song, playWhenReady = true, startPositionMs = startPositionMs)
+        val s = service
+        if (s != null) {
+            s.prepareSong(song, playWhenReady = true, startPositionMs = startPositionMs)
+        } else {
+            pendingPlaySong = Triple(song, startPositionMs, true)
+        }
     }
 
     fun togglePlayPause() {
@@ -587,12 +598,9 @@ class PlayerController(
         _playMode.value = audioPreferences.settings.value.playMode
         notifyWidgetUpdate()
 
-        // Silently prepare player on service if connected so user can immediately resume
-        service?.let { s ->
-            if (s.player.currentMediaItem == null) {
-                s.prepareSong(targetSong, playWhenReady = false, startPositionMs = lastPos)
-            }
-        }
+        // Do not pre-prepare ExoPlayer AudioTrack while stopped on cold start.
+        // Keeping AudioTrack unallocated avoids background buffer stagnation and DAC DC-offset pops.
+        // Playback will be cleanly initialized with a fresh anti-pop ramp when the user taps play.
 
         // Silently preload artwork, lyrics, and metadata in the background
         metadataJob?.cancel()
