@@ -46,24 +46,13 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --no-daemon
-
-      - name: Compute Checksum
-        run: |
-          if [ -f "app/build/outputs/apk/release/lumina-player.apk" ]; then
-            cd app/build/outputs/apk/release
-            sha256sum lumina-player.apk > lumina-player.apk.sha256
-            echo "Calculated SHA-256 Checksum:"
-            cat lumina-player.apk.sha256
-          fi
+        run: ./gradlew assembleRelease
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v')
         with:
-          files: |
-            app/build/outputs/apk/release/lumina-player.apk
-            app/build/outputs/apk/release/lumina-player.apk.sha256
+          files: app/build/outputs/apk/release/lumina-player.apk
           name: Lumina Player ${{ github.ref_name }}
           generate_release_notes: true
           draft: false
@@ -72,8 +61,5 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lumina-player-release
-          path: |
-            app/build/outputs/apk/release/lumina-player.apk
-            app/build/outputs/apk/release/lumina-player.apk.sha256
-          retention-days: 30
+          name: lumina-player
+          path: app/build/outputs/apk/release/lumina-player.apk
