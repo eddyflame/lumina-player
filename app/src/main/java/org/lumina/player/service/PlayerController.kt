@@ -167,6 +167,11 @@ class PlayerController(
         _currentArtwork.value = null
         notifyWidgetUpdate()
 
+        val audioPrefs = (context.applicationContext as? org.lumina.player.LuminaApp)?.audioPreferences
+        audioPrefs?.setLastSongUri(song.uri)
+        audioPrefs?.setLastPositionMs(0L)
+        audioPrefs?.setLastQueueUris(_queue.value.map { it.uri })
+
         // 加载封面、歌词与技术参数
         scope.launch(Dispatchers.IO) {
             val art = AudioTagReader.extractArtwork(context, song.uri, song.filePath)
@@ -198,12 +203,22 @@ class PlayerController(
     }
 
     fun togglePlayPause() {
-        val player = service?.player ?: return
-        if (player.isPlaying) {
+        val player = service?.player
+        if (player == null || player.currentMediaItem == null) {
+            _currentSong.value?.let { restoredSong ->
+                val startPos = _currentPositionMs.value
+                playSong(restoredSong, _queue.value)
+                if (startPos > 0) {
+                    seekTo(startPos)
+                }
+                return
+            }
+        }
+        if (player?.isPlaying == true) {
             player.pause()
         } else {
             if (_currentSong.value != null) {
-                player.play()
+                player?.play()
             } else if (_queue.value.isNotEmpty()) {
                 val first = _queue.value.first()
                 playSong(first)
@@ -212,7 +227,18 @@ class PlayerController(
     }
 
     fun play() {
-        service?.player?.play()
+        val player = service?.player
+        if (player == null || player.currentMediaItem == null) {
+            _currentSong.value?.let { restoredSong ->
+                val startPos = _currentPositionMs.value
+                playSong(restoredSong, _queue.value)
+                if (startPos > 0) {
+                    seekTo(startPos)
+                }
+                return
+            }
+        }
+        player?.play()
     }
 
     fun pause() {
@@ -383,12 +409,19 @@ class PlayerController(
     private fun startPositionTracker() {
         positionTrackerJob?.cancel()
         positionTrackerJob = scope.launch {
+            var saveCounter = 0
             while (isActive) {
                 val pos = service?.player?.currentPosition ?: 0L
                 _currentPositionMs.value = pos
                 val dur = service?.player?.duration ?: 0L
                 if (dur > 0 && dur != _durationMs.value) {
                     _durationMs.value = dur
+                }
+                saveCounter++
+                if (saveCounter >= 5) { // 每秒存一次播放进度
+                    saveCounter = 0
+                    val audioPrefs = (context.applicationContext as? org.lumina.player.LuminaApp)?.audioPreferences
+                    audioPrefs?.setLastPositionMs(pos)
                 }
                 delay(200L)
             }
@@ -397,6 +430,45 @@ class PlayerController(
 
     private fun stopPositionTracker() {
         positionTrackerJob?.cancel()
+    }
+
+    /**
+     * 恢复上次退出或异常中断时的播放曲目、队列与进度（杜绝 MiniPlayer 丢失并支持重新打开后继续上次播放）
+     */
+    fun restoreLastPlaybackState(songs: List<Song>) {
+        if (_currentSong.value != null || songs.isEmpty()) return
+        val audioPrefs = (context.applicationContext as? org.lumina.player.LuminaApp)?.audioPreferences ?: return
+        val lastUri = audioPrefs.getLastSongUri() ?: return
+        val targetSong = songs.firstOrNull { it.uri == lastUri } ?: return
+        val lastPos = audioPrefs.getLastPositionMs()
+        val queueUris = audioPrefs.getLastQueueUris()
+        val restoredQueue = if (queueUris.isNotEmpty()) {
+            val map = songs.associateBy { it.uri }
+            queueUris.mapNotNull { map[it] }.ifEmpty { listOf(targetSong) }
+        } else {
+            listOf(targetSong)
+        }
+
+        _queue.value = restoredQueue
+        _queueIndex.value = restoredQueue.indexOfFirst { it.uri == targetSong.uri }.coerceAtLeast(0)
+        _currentSong.value = targetSong
+        _currentPositionMs.value = lastPos
+        _durationMs.value = targetSong.durationMs
+        notifyWidgetUpdate()
+
+        // 后台静默预加载封面、歌词与音频元数据
+        scope.launch(Dispatchers.IO) {
+            val art = AudioTagReader.extractArtwork(context, targetSong.uri, targetSong.filePath)
+            val meta = AudioTagReader.extractMetadata(context, targetSong.uri, targetSong.filePath)
+            val lyricsText = meta.embeddedLyrics ?: AudioTagReader.findExternalLrc(targetSong.filePath)
+            val parsed = if (!lyricsText.isNullOrBlank()) LrcParser.parse(lyricsText) else emptyList()
+            withContext(Dispatchers.Main) {
+                _currentArtwork.value = art
+                _currentTechInfo.value = meta.technicalInfo
+                _currentLyrics.value = parsed
+                notifyWidgetUpdate()
+            }
+        }
     }
 
     private fun notifyWidgetUpdate() {

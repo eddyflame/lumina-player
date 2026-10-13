@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import org.lumina.player.core.model.AudioFormatType
+import org.lumina.player.core.model.PlayMode
 import org.lumina.player.core.model.Song
 import org.lumina.player.ui.components.EqualizerDialog
 import org.lumina.player.ui.components.QueueBottomSheet
@@ -175,6 +176,13 @@ fun LuminaPlayerApp(
         }
     }
 
+    // 当曲库扫描加载完成时，自动恢复上次播放的曲目与队列（恢复 MiniPlayer 与播放进度）
+    LaunchedEffect(songs) {
+        if (songs.isNotEmpty()) {
+            app.playerController.restoreLastPlaybackState(songs)
+        }
+    }
+
     // 拦截返回键：如果全屏播放器打开，先折叠为微型播放器
     BackHandler(enabled = isFullPlayerOpen) {
         isFullPlayerOpen = false
@@ -211,6 +219,14 @@ fun LuminaPlayerApp(
                 onOpenMiniPlayer = { isFullPlayerOpen = true },
                 onOpenSettings = { isSettingsOpen = true },
                 onOpenEqualizer = { isEqualizerOpen = true },
+                onShuffleAll = { songsToShuffle ->
+                    if (songsToShuffle.isNotEmpty()) {
+                        val shuffled = songsToShuffle.shuffled()
+                        app.playerController.setPlayMode(PlayMode.SHUFFLE)
+                        app.audioPreferences.setPlayMode(PlayMode.SHUFFLE)
+                        app.playerController.playSong(shuffled.first(), shuffled)
+                    }
+                },
                 onCreatePlaylist = { name -> app.repository.createPlaylist(name) }
             )
 

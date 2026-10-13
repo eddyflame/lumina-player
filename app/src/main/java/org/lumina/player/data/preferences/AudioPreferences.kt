@@ -87,6 +87,28 @@ class AudioPreferences(context: Context) {
         _settings.value = _settings.value.copy(playMode = mode)
     }
 
+    fun getLastSongUri(): String? = prefs.getString(KEY_LAST_SONG_URI, null)
+
+    fun setLastSongUri(uri: String?) {
+        prefs.edit().putString(KEY_LAST_SONG_URI, uri).apply()
+    }
+
+    fun getLastPositionMs(): Long = prefs.getLong(KEY_LAST_POSITION_MS, 0L)
+
+    fun setLastPositionMs(pos: Long) {
+        prefs.edit().putLong(KEY_LAST_POSITION_MS, pos).apply()
+    }
+
+    fun getLastQueueUris(): List<String> {
+        val raw = prefs.getString(KEY_LAST_QUEUE_URIS, null) ?: return emptyList()
+        return raw.split(",").filter { it.isNotBlank() }
+    }
+
+    fun setLastQueueUris(uris: List<String>) {
+        val raw = uris.joinToString(",")
+        prefs.edit().putString(KEY_LAST_QUEUE_URIS, raw).apply()
+    }
+
     companion object {
         private const val PREFS_NAME = "lumina_audio_prefs"
         private const val KEY_EQ_ENABLED = "key_eq_enabled"
@@ -97,5 +119,8 @@ class AudioPreferences(context: Context) {
         private const val KEY_REPLAY_GAIN = "key_replay_gain"
         private const val KEY_FILTER_SHORT = "key_filter_short"
         private const val KEY_PLAY_MODE = "key_play_mode"
+        private const val KEY_LAST_SONG_URI = "key_last_song_uri"
+        private const val KEY_LAST_POSITION_MS = "key_last_position_ms"
+        private const val KEY_LAST_QUEUE_URIS = "key_last_queue_uris"
     }
 }

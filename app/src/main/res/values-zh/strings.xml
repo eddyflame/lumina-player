@@ -126,4 +126,11 @@
     <string name="no_songs_title">未扫描到音频文件</string>
     <string name="no_songs_desc">请在设备中放入音频文件，或点击重新扫描以刷新曲库。</string>
     <string name="scan_completed">扫描完成：共发现 %d 首歌曲</string>
+
+    <!-- 关于与作者 -->
+    <string name="about_app">关于软件</string>
+    <string name="app_version">版本号</string>
+    <string name="author">开发者</string>
+    <string name="author_name">eddy</string>
+    <string name="about_desc">发烧级纯本地音乐播放器，纯离线无隐私追踪。</string>
 </resources>

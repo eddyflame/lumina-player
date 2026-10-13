@@ -110,6 +110,7 @@ fun MainLibraryScreen(
     onOpenMiniPlayer: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenEqualizer: () -> Unit,
+    onShuffleAll: (List<Song>) -> Unit,
     onCreatePlaylist: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -274,8 +275,7 @@ fun MainLibraryScreen(
                     onSongClick = { song -> onSongClick(song, filteredSongs) },
                     onShuffleAll = {
                         if (filteredSongs.isNotEmpty()) {
-                            val shuffled = filteredSongs.shuffled()
-                            onSongClick(shuffled.first(), shuffled)
+                            onShuffleAll(filteredSongs)
                         }
                     }
                 )

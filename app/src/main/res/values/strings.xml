@@ -126,4 +126,11 @@
     <string name="no_songs_title">No Music Found</string>
     <string name="no_songs_desc">Place audio files on your device or tap Rescan to refresh your library.</string>
     <string name="scan_completed">Scan completed: %d songs found</string>
+
+    <!-- About & Author -->
+    <string name="about_app">About</string>
+    <string name="app_version">Version</string>
+    <string name="author">Author</string>
+    <string name="author_name">eddy</string>
+    <string name="about_desc">Audiophile Local Music Player. Purely offline, zero tracking.</string>
 </resources>

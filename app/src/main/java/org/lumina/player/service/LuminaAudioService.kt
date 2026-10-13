@@ -6,10 +6,13 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.os.PowerManager
+import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -37,6 +40,7 @@ class LuminaAudioService : MediaSessionService() {
 
     val dspController = AudioDspController()
 
+    private var wakeLock: PowerManager.WakeLock? = null
     private val binder = LocalBinder()
 
     inner class LocalBinder : Binder() {
@@ -45,6 +49,14 @@ class LuminaAudioService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+
+        val powerManager = getSystemService(PowerManager::class.java)
+        wakeLock = powerManager?.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "LuminaPlayer:PlaybackWakeLock"
+        )?.apply {
+            setReferenceCounted(false)
+        }
 
         val audioAttributes = AudioAttributes.Builder()
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
@@ -58,11 +70,19 @@ class LuminaAudioService : MediaSessionService() {
             .setSeekParameters(androidx.media3.exoplayer.SeekParameters.EXACT)
             .build()
 
-        // 绑定系统音频会话以支持均衡器 (仅当 AudioSessionId 发生变化时附加音效，杜绝切歌或 seek 频繁重建音效产生爆音/破音)
+        // 绑定系统音频会话以支持均衡器，并在播放时维持 CPU 唤醒锁，防止息屏后被系统休眠中断播放
         player.addListener(object : Player.Listener {
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 if (audioSessionId != C.AUDIO_SESSION_ID_UNSET && audioSessionId != 0) {
                     dspController.attachAudioSession(audioSessionId)
+                }
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (isPlaying) {
+                    runCatching { wakeLock?.acquire(24 * 60 * 60 * 1000L) }
+                } else {
+                    runCatching { if (wakeLock?.isHeld == true) wakeLock?.release() }
                 }
             }
         })
@@ -123,10 +143,64 @@ class LuminaAudioService : MediaSessionService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 关键：立即同步调用 startForeground，满足 Android 14+ 5秒内必须调用 Service.startForeground 的要求，杜绝 ANR 闪退
+        startForegroundSafely()
         mediaSession?.let { session ->
             onUpdateNotification(session, true)
         }
         return super.onStartCommand(intent, flags, startId)
+    }
+
+    private fun startForegroundSafely() {
+        runCatching {
+            val title = mediaSession?.player?.mediaMetadata?.title?.toString()
+                ?.ifBlank { null } ?: getString(R.string.app_name)
+            val artist = mediaSession?.player?.mediaMetadata?.artist?.toString()
+                ?.ifBlank { null } ?: getString(R.string.now_playing)
+
+            val openAppIntent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val contentPendingIntent = PendingIntent.getActivity(
+                this,
+                0,
+                openAppIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(title)
+                .setContentText(artist)
+                .setContentIntent(contentPendingIntent)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setOngoing(true)
+                .setSilent(true)
+                .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+                .apply {
+                    val extras = Bundle().apply {
+                        putBoolean("miui.focus.enable", true)
+                        putBoolean("miui.focus.media", true)
+                        putInt("miui.focus.type", 1)
+                        putBoolean("miui.focus.ongoing", true)
+                        putString("miui.focus.title", title)
+                        putString("miui.focus.subtitle", artist)
+                    }
+                    setExtras(extras)
+                }
+                .build()
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        }
     }
 
     private class LuminaMediaNotificationProvider(
@@ -303,6 +377,10 @@ class LuminaAudioService : MediaSessionService() {
             mediaSession = null
         }
         dspController.release()
+        runCatching {
+            if (wakeLock?.isHeld == true) wakeLock?.release()
+        }
+        wakeLock = null
         super.onDestroy()
     }
 }
