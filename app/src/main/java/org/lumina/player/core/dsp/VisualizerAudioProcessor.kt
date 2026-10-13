@@ -260,17 +260,24 @@ class VisualizerAudioProcessor(
             val freqWeight = 1.0f + (b.toFloat() / barCount) * 1.8f
             val rawNormalized = (avgMag * freqWeight * 0.12f).coerceIn(0.0f, 1.0f)
             // Perceptual logarithmic power curve to mimic human auditory loudness
-            val normalized = Math.pow(rawNormalized.toDouble(), 0.75).toFloat()
+            val normalized = Math.pow(rawNormalized.toDouble(), 0.82).toFloat()
 
             // Smooth dynamic attack (gradual organic rise) & decay (graceful liquid falloff)
             val current = smoothedBars[b]
             val smoothed = if (normalized > current) {
-                current + (normalized - current) * 0.42f // Smooth organic attack
+                current + (normalized - current) * 0.24f // Smooth organic attack (~60ms rise)
             } else {
-                current * 0.89f // Graceful exponential decay
+                current * 0.92f // Graceful exponential decay (~250-300ms liquid falloff)
             }
             smoothedBars[b] = smoothed
-            currentBars[b] = smoothed.coerceIn(0.04f, 1.0f)
+        }
+
+        // Apply 3-tap spatial smoothing across adjacent bands to eliminate single-bin spikes
+        for (b in 0 until barCount) {
+            val prev = smoothedBars[(b - 1).coerceAtLeast(0)]
+            val curr = smoothedBars[b]
+            val next = smoothedBars[(b + 1).coerceAtMost(barCount - 1)]
+            currentBars[b] = (prev * 0.2f + curr * 0.6f + next * 0.2f).coerceIn(0.04f, 1.0f)
         }
 
         // Throttle UI flow emission to ~40-60 FPS (approx every 18ms)
