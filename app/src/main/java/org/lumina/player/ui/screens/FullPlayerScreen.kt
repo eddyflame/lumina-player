@@ -33,9 +33,10 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -107,8 +108,7 @@ import org.lumina.player.ui.theme.LuminaPrimary
  */
 enum class PlayerArtViewMode {
     VINYL_DISC,
-    LYRICS,
-    VISUALIZER
+    LYRICS
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -126,7 +126,6 @@ fun FullPlayerScreen(
     playbackSpeed: Float,
     dspController: org.lumina.player.core.dsp.AudioDspController?,
     artwork: android.graphics.Bitmap? = null,
-    visualizerSpectrum: FloatArray = remember { FloatArray(24) { 0.04f } },
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
@@ -299,13 +298,26 @@ fun FullPlayerScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Middle artistic content area (Vinyl / Lyrics / Visualizer)
+                // Middle artistic content area (Vinyl / Lyrics with dynamic Siri ambient aura backdrop)
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
+                    // Siri Luminous Fluid Aura ambient background layer behind Vinyl & Lyrics
+                    val auraAlpha by animateFloatAsState(
+                        targetValue = if (viewMode == PlayerArtViewMode.LYRICS) 0.60f else 0.85f,
+                        animationSpec = tween(350),
+                        label = "siri_aura_alpha"
+                    )
+                    AudioVisualizer(
+                        isPlaying = isPlaying,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(auraAlpha)
+                    )
+
                     Crossfade(
                         targetState = viewMode,
                         animationSpec = tween(350),
@@ -426,7 +438,7 @@ fun FullPlayerScreen(
                                             interactionSource = remember { MutableInteractionSource() },
                                             indication = null
                                         ) {
-                                            viewMode = PlayerArtViewMode.VISUALIZER
+                                            viewMode = PlayerArtViewMode.VINYL_DISC
                                         }
                                 ) {
                                     LyricsView(
@@ -439,24 +451,11 @@ fun FullPlayerScreen(
                                     )
                                 }
                             }
-                            PlayerArtViewMode.VISUALIZER -> {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(vertical = 8.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    AudioVisualizer(
-                                        isPlaying = isPlaying,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-                            }
                         }
                     }
                 }
 
-                // Subtitle mode switcher pill (Vinyl / Lyrics / Visualizer)
+                // Subtitle mode switcher pill (Vinyl / Lyrics)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -493,17 +492,6 @@ fun FullPlayerScreen(
                                     imageVector = Icons.Default.Lyrics,
                                     contentDescription = "Lyrics",
                                     tint = if (viewMode == PlayerArtViewMode.LYRICS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            IconButton(
-                                onClick = { viewMode = PlayerArtViewMode.VISUALIZER },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.GraphicEq,
-                                    contentDescription = stringResource(R.string.visualizer),
-                                    tint = if (viewMode == PlayerArtViewMode.VISUALIZER) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                     modifier = Modifier.size(18.dp)
                                 )
                             }

@@ -91,10 +91,10 @@ Lumina Player is engineered to support the widest possible spectrum of local aud
 * **Zero-Strength HAL Passthrough**: Effects (BassBoost, Virtualizer, Equalizer) are only activated in AudioFlinger when non-zero gain is requested, preventing HAL volume intercept collisions on cold start while retaining ~60ms smooth step interpolation during slider adjustments.
 * **Sleep Timer with Soft Fade-Out**: In the last 10 seconds of countdown, master volume gently interpolates down to zero before pausing playback, ensuring comfortable transitions.
 * **Playback Mode & State Persistence**: Seamlessly restores play mode (repeat/shuffle), track index, and position on app restart with muted cold-start preroll.
-* **Autonomous Luminous Fluid Aura Visualizer**:
+* **Dynamic Siri Ambient Fluid Aura Backdrop**:
   * Employs authentic **Apple Siri / Apple Intelligence** glowing fluid orb dynamics with pure saturated neon jewel tones (Electric Cyan `#00E5FF`, Vivid Magenta `#FF2D55`, Royal Violet `#7000FF`, Luminous Amber `#FF9500`, and a central ethereal luminescence core).
   * Driven by a frame-clock monotonic time integration engine (`withFrameNanos`) and continuous harmonic trigonometric functions, completely eliminating periodic restart resets, boundary discontinuities, and visual jerks/twitches.
-  * Integrated as a dedicated 1st-class central stage view mode in `FullPlayerScreen` (`VINYL_DISC` ⇋ `LYRICS` ⇋ `VISUALIZER`).
+  * Integrated as an ambient living backdrop behind both the rotating Vinyl Disc and synchronized scrolling Lyrics in `FullPlayerScreen`, dynamically fading opacity (`0.85` for Vinyl halo corona, `0.60` for soft readable Lyrics backdrop) while streamlining view navigation (`VINYL_DISC` ⇋ `LYRICS`).
 
 ### 4.3 Zero-Reflection Reactive Persistence & Playlist Management (`MusicDatabase`)
 * Avoids KSP annotation-processor brittleness across rapid Kotlin 2.x and AGP upgrades.
