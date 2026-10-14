@@ -21,8 +21,8 @@ android {
         applicationId = "org.lumina.player"
         minSdk = 26
         targetSdk = 36
-        versionCode = 130
-        versionName = "1.2.0"
+        versionCode = 131
+        versionName = "1.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

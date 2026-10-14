@@ -17,16 +17,10 @@ enum class DarkThemeStyle {
     AMOLED
 }
 
-enum class LockscreenControlStyle {
-    LUMINA_COMPACT,
-    SYSTEM_MEDIA
-}
-
 data class ThemeSettings(
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val darkThemeStyle: DarkThemeStyle = DarkThemeStyle.SLATE,
-    val dynamicColor: Boolean = false,
-    val lockscreenControlStyle: LockscreenControlStyle = LockscreenControlStyle.LUMINA_COMPACT
+    val dynamicColor: Boolean = false
 )
 
 class ThemePreferences(context: Context) {
@@ -39,20 +33,11 @@ class ThemePreferences(context: Context) {
         val modeStr = prefs.getString(KEY_THEME_MODE, AppThemeMode.SYSTEM.name) ?: AppThemeMode.SYSTEM.name
         val styleStr = prefs.getString(KEY_DARK_STYLE, DarkThemeStyle.SLATE.name) ?: DarkThemeStyle.SLATE.name
         val dynamicColor = prefs.getBoolean(KEY_DYNAMIC_COLOR, false)
-        val lockscreenStyleStr = prefs.getString(KEY_LOCKSCREEN_STYLE, LockscreenControlStyle.LUMINA_COMPACT.name)
-            ?: LockscreenControlStyle.LUMINA_COMPACT.name
 
         val mode = runCatching { AppThemeMode.valueOf(modeStr) }.getOrDefault(AppThemeMode.SYSTEM)
         val style = runCatching { DarkThemeStyle.valueOf(styleStr) }.getOrDefault(DarkThemeStyle.SLATE)
-        val lockscreenStyle = runCatching { LockscreenControlStyle.valueOf(lockscreenStyleStr) }
-            .getOrDefault(LockscreenControlStyle.LUMINA_COMPACT)
 
-        return ThemeSettings(
-            themeMode = mode,
-            darkThemeStyle = style,
-            dynamicColor = dynamicColor,
-            lockscreenControlStyle = lockscreenStyle
-        )
+        return ThemeSettings(themeMode = mode, darkThemeStyle = style, dynamicColor = dynamicColor)
     }
 
     fun setThemeMode(mode: AppThemeMode) {
@@ -70,16 +55,10 @@ class ThemePreferences(context: Context) {
         _themeSettings.value = _themeSettings.value.copy(dynamicColor = enabled)
     }
 
-    fun setLockscreenControlStyle(style: LockscreenControlStyle) {
-        prefs.edit().putString(KEY_LOCKSCREEN_STYLE, style.name).apply()
-        _themeSettings.value = _themeSettings.value.copy(lockscreenControlStyle = style)
-    }
-
     companion object {
         private const val PREFS_NAME = "lumina_theme_prefs"
         private const val KEY_THEME_MODE = "key_theme_mode"
         private const val KEY_DARK_STYLE = "key_dark_style"
         private const val KEY_DYNAMIC_COLOR = "key_dynamic_color"
-        private const val KEY_LOCKSCREEN_STYLE = "key_lockscreen_style"
     }
 }

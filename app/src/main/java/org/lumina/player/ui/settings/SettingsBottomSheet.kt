@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.dp
 import org.lumina.player.R
 import org.lumina.player.data.preferences.AppThemeMode
 import org.lumina.player.data.preferences.DarkThemeStyle
-import org.lumina.player.data.preferences.LockscreenControlStyle
 import org.lumina.player.data.preferences.ThemeSettings
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,7 +50,6 @@ fun SettingsBottomSheet(
     onSetThemeMode: (AppThemeMode) -> Unit,
     onSetDarkThemeStyle: (DarkThemeStyle) -> Unit,
     onSetDynamicColor: (Boolean) -> Unit,
-    onSetLockscreenControlStyle: (LockscreenControlStyle) -> Unit,
     onSetFilterShortAudio: (Boolean) -> Unit,
     onRescanLibrary: () -> Unit,
     onOpenEqualizer: () -> Unit
@@ -143,37 +141,6 @@ fun SettingsBottomSheet(
                 Switch(
                     checked = themeSettings.dynamicColor,
                     onCheckedChange = onSetDynamicColor
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Lock screen control style selector
-            Text(
-                text = stringResource(R.string.lockscreen_control_style),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.lockscreen_control_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = themeSettings.lockscreenControlStyle == LockscreenControlStyle.LUMINA_COMPACT,
-                    onClick = { onSetLockscreenControlStyle(LockscreenControlStyle.LUMINA_COMPACT) },
-                    label = { Text(stringResource(R.string.lockscreen_style_compact)) }
-                )
-                FilterChip(
-                    selected = themeSettings.lockscreenControlStyle == LockscreenControlStyle.SYSTEM_MEDIA,
-                    onClick = { onSetLockscreenControlStyle(LockscreenControlStyle.SYSTEM_MEDIA) },
-                    label = { Text(stringResource(R.string.lockscreen_style_system)) }
                 )
             }
 

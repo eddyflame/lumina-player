@@ -52,7 +52,7 @@
 - **Fluid Gestures**: Interactive Mini Player bar with swipe-to-switch and pull-up fullscreen expansion.
 
 ### 📱 Lock Screen Controls & Desktop Playback Widget
-- **Dual Lock Screen Styles**: Choose between **Lumina Compact** (64dp compact, 100dp expanded RemoteViews with brand tag, dynamic Hi-Res audio spec badge, and jewel buttons to preserve wallpaper) and **System Native** (standard Android media card) in Settings;
+- **Full Lock Screen Media Controls**: Native Android MediaSession integration with persistent public visibility, real-time seek, track skipping, and dynamic album artwork;
 - **Xiaomi HyperOS Focus & Dynamic Island**: Automatically populates `miui.focus` notification extras for seamless status bar pill and lock screen dynamic island controls;
 - **Desktop Widget (AppWidget)**: Slim 1-row form factor with illuminated `LUMINA` badge, obsidian gradient, and memory-safe squircle artwork.
 

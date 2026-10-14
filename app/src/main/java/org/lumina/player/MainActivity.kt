@@ -323,7 +323,6 @@ fun LuminaPlayerApp(
                     onSetThemeMode = { mode -> app.themePreferences.setThemeMode(mode) },
                     onSetDarkThemeStyle = { style -> app.themePreferences.setDarkThemeStyle(style) },
                     onSetDynamicColor = { dyn -> app.themePreferences.setDynamicColor(dyn) },
-                    onSetLockscreenControlStyle = { style -> app.themePreferences.setLockscreenControlStyle(style) },
                     onSetFilterShortAudio = { filter ->
                         app.audioPreferences.setFilterShortAudio(filter)
                         coroutineScope.launch {
