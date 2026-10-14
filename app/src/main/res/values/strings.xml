@@ -2,6 +2,8 @@
 <resources>
     <string name="app_name">Lumina Player</string>
     <string name="app_subtitle">Audiophile Local Music Player</string>
+    <string name="app_name_upper">LUMINA</string>
+    <string name="widget_description">Compact desktop &amp; lock screen music playback controls</string>
 
     <!-- Navigation Tabs -->
     <string name="tab_songs">Songs</string>

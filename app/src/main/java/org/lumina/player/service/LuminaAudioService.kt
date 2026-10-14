@@ -248,6 +248,7 @@ class LuminaAudioService : MediaSessionService() {
             val notification = mediaNotification.notification
             // Ensure full public visibility on lock screen
             notification.visibility = Notification.VISIBILITY_PUBLIC
+            notification.color = 0xFF0284C7.toInt()
 
             // Adapt for Xiaomi HyperOS Focus Notification & Dynamic Island (miui.focus)
             val extras = notification.extras ?: Bundle()

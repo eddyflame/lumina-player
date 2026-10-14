@@ -2,6 +2,8 @@
 <resources>
     <string name="app_name">Lumina 音乐</string>
     <string name="app_subtitle">发烧级纯本地音乐播放器</string>
+    <string name="app_name_upper">LUMINA</string>
+    <string name="widget_description">精简桌面与锁屏音乐播放微件</string>
 
     <!-- 导航标签 -->
     <string name="tab_songs">单曲</string>

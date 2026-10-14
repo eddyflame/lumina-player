@@ -51,8 +51,10 @@
 - **Ambient Flow Glow**: Dynamically tinted gradient backgrounds derived from album art colors;
 - **Fluid Gestures**: Interactive Mini Player bar with swipe-to-switch and pull-up fullscreen expansion.
 
-### 📱 Desktop Playback Widget
-- **Home Screen Control**: Clean Material 3 style desktop widget displaying current track title, artist, and playback status with interactive Play/Pause, Previous, and Next buttons.
+### 📱 Lock Screen & Desktop Playback Widget
+- **Compact 1-Row Layout**: Slim form factor engineered for both keyguard lock screen and home screen launcher, eliminating multi-row bloating;
+- **Brand Identity & Jewel Styling**: Luminous `LUMINA` brand badge, deep obsidian gradient background, and electric cyan (`#38BDF8`) highlight playback controls;
+- **Squircle Artwork & Safety Scaling**: Render smooth rounded album thumbnails with memory-safe scaling to prevent Binder buffer overflow crashes.
 
 ### 🛡️ Pure Offline & Zero Tracking
 - **No Internet Required**: 100% offline, zero network requests, zero telemetry, and zero ads.

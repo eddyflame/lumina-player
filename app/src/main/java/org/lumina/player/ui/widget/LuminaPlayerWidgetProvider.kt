@@ -7,6 +7,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
 import android.widget.RemoteViews
 import org.lumina.player.LuminaApp
 import org.lumina.player.MainActivity
@@ -80,6 +85,9 @@ class LuminaPlayerWidgetProvider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.widget_container, openPendingIntent)
 
+            // Brand badge tag
+            views.setTextViewText(R.id.widget_app_tag, context.getString(R.string.app_name_upper))
+
             // Track details
             if (song != null) {
                 views.setTextViewText(R.id.widget_title, song.title)
@@ -89,11 +97,12 @@ class LuminaPlayerWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_artist, context.getString(R.string.app_subtitle))
             }
 
-            // Album artwork
-            if (artwork != null) {
-                views.setImageViewBitmap(R.id.widget_art, artwork)
+            // Rounded album artwork thumbnail or modern fallback
+            if (artwork != null && !artwork.isRecycled) {
+                val roundedArtwork = getRoundedCornerBitmap(artwork, cornerRadiusPx = 32f)
+                views.setImageViewBitmap(R.id.widget_art, roundedArtwork)
             } else {
-                views.setImageViewResource(R.id.widget_art, R.drawable.ic_launcher_foreground)
+                views.setImageViewResource(R.id.widget_art, R.drawable.ic_widget_default_art)
             }
 
             // Action button PendingIntents
@@ -115,6 +124,31 @@ class LuminaPlayerWidgetProvider : AppWidgetProvider() {
             views.setImageViewResource(R.id.widget_btn_play_pause, playPauseRes)
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
+        }
+
+        private fun getRoundedCornerBitmap(src: Bitmap, cornerRadiusPx: Float): Bitmap {
+            return runCatching {
+                val size = 160
+                val scaled = if (src.width != size || src.height != size) {
+                    Bitmap.createScaledBitmap(src, size, size, true)
+                } else {
+                    src
+                }
+                val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(output)
+                val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    isAntiAlias = true
+                    isFilterBitmap = true
+                }
+                val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
+                canvas.drawRoundRect(rect, cornerRadiusPx, cornerRadiusPx, paint)
+                paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+                canvas.drawBitmap(scaled, 0f, 0f, paint)
+                if (scaled !== src) {
+                    scaled.recycle()
+                }
+                output
+            }.getOrDefault(src)
         }
 
         private fun getBroadcastPendingIntent(context: Context, action: String, requestCode: Int): PendingIntent {

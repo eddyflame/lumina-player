@@ -115,6 +115,10 @@ Lumina Player is engineered to support the widest possible spectrum of local aud
 * **AMOLED Pure Black (`#000000`)**: True black OLED power efficiency.
 * **Dynamic Color (Monet)**: Wall-paper-based palettes for Android 12+.
 * **Ambient Mesh Glow**: Dynamically tinted gradient backgrounds in the fullscreen player.
+* **Compact Lock Screen & Desktop Widget (`LuminaPlayerWidgetProvider`)**:
+  * Engineered with a slim 1-row form factor (`minHeight="40dp"`, `targetCellHeight="1"`), preventing Android launchers and lock screen keyguards from expanding it to two rows.
+  * Displays a prominent illuminated `LUMINA` brand identity badge in cyan (`#38BDF8`) alongside real-time track metadata and artist info.
+  * Features jewel-gradient circular play controls (`#38BDF8` ➔ `#0284C7`), frosted-glass secondary action buttons, and rounded squircle album artwork rendering with memory-safe thumbnail scaling to prevent Binder `TransactionTooLargeException`.
 
 ---
 
