@@ -1,7 +1,8 @@
 # Agent Guidelines for Lumina Player
 
 ## 1. Versioning
-- Increment `versionCode` (+1) monotonically in `app/build.gradle.kts` on every change.
+- Increment `versionCode` (+1) monotonically in `app/build.gradle.kts` and bump `versionName` ONLY on code/functional changes (`feat:`, `fix:`, `perf:`, `refactor:` affecting app functionality).
+- Do NOT bump `versionCode` or `versionName` for non-code changes such as documentation (`docs:`), workspace configs, chore/maintenance (`chore:`), CI/workflows (`ci:`), or file cleanup.
 - Follow Semantic Versioning (`MAJOR.MINOR.PATCH`) strictly for `versionName`:
   - `PATCH` (+1): Bug fixes, audio tuning, DSP tweaks, optimizations (`fix:`, `perf:`).
   - `MINOR` (+1, reset patch to 0): New user features, capabilities, or major enhancements (`feat:`).
