@@ -184,6 +184,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null,
                     }
                     for (deadUri in deadUris) {
                         db.delete(TABLE_SONGS, "$COL_URI = ?", arrayOf(deadUri))
+                        db.delete(TABLE_PLAYLIST_ITEMS, "$COL_PI_SONG_URI = ?", arrayOf(deadUri))
                     }
 
                     db.setTransactionSuccessful()

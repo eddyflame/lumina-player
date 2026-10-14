@@ -53,25 +53,12 @@ fun EqualizerDialog(
         }
     }
 
-    val presets = remember {
-        listOf(
-            R.string.eq_flat to listOf(0, 0, 0, 0, 0),
-            R.string.eq_rock to listOf(400, 200, -100, 300, 500),
-            R.string.eq_pop to listOf(-100, 200, 500, 100, -200),
-            R.string.eq_jazz to listOf(300, 100, -200, 200, 400),
-            R.string.eq_classical to listOf(400, 300, -200, 200, 300),
-            R.string.eq_metal to listOf(500, 100, -300, 400, 600),
-            R.string.eq_hiphop to listOf(400, 300, 0, 200, 300)
-        )
-    }
+    val presets = remember { org.lumina.player.core.dsp.EqPresets.ALL }
 
     // Determine initial matching preset based on current band levels
     var selectedPresetResId by remember {
-        val initialMatch = presets.firstOrNull { (_, levels) ->
-            levels.indices.all { idx ->
-                idx < bandLevels.size && abs(bandLevels[idx].floatValue - levels[idx].toFloat()) < 10f
-            }
-        }?.first
+        val currentLevels = bandLevels.map { it.floatValue.toInt().toShort() }
+        val initialMatch = org.lumina.player.core.dsp.EqPresets.findMatchingPreset(currentLevels)?.nameResId
         mutableStateOf<Int?>(initialMatch)
     }
 
@@ -116,22 +103,22 @@ fun EqualizerDialog(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    presets.forEach { (nameRes, levels) ->
-                        val isSelected = selectedPresetResId == nameRes
+                    presets.forEach { preset ->
+                        val isSelected = selectedPresetResId == preset.nameResId
                         FilterChip(
                             selected = isSelected,
                             onClick = {
                                 if (isEnabled && dspController != null) {
-                                    selectedPresetResId = nameRes
-                                    levels.forEachIndexed { idx, lvl ->
+                                    selectedPresetResId = preset.nameResId
+                                    preset.bandLevels.forEachIndexed { idx, lvl ->
                                         if (idx < bandLevels.size) {
                                             bandLevels[idx].floatValue = lvl.toFloat()
-                                            dspController.setBandLevel(idx.toShort(), lvl.toShort())
+                                            dspController.setBandLevel(idx.toShort(), lvl)
                                         }
                                     }
                                 }
                             },
-                            label = { Text(stringResource(nameRes), fontSize = 12.sp) }
+                            label = { Text(stringResource(preset.nameResId), fontSize = 12.sp) }
                         )
                     }
                 }

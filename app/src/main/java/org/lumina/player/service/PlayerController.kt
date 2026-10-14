@@ -372,11 +372,9 @@ class PlayerController(
         val nextIndex = when (_playMode.value) {
             PlayMode.SHUFFLE -> {
                 if (q.size > 1) {
-                    var r = Random.nextInt(q.size)
-                    while (r == _queueIndex.value) {
-                        r = Random.nextInt(q.size)
-                    }
-                    r
+                    val curIdx = _queueIndex.value
+                    val r = Random.nextInt(q.size - 1)
+                    if (r >= curIdx && curIdx in q.indices) r + 1 else r
                 } else {
                     0
                 }
@@ -403,18 +401,16 @@ class PlayerController(
         val prevIndex = when (_playMode.value) {
             PlayMode.SHUFFLE -> {
                 if (q.size > 1) {
-                    var r = Random.nextInt(q.size)
-                    while (r == _queueIndex.value) {
-                        r = Random.nextInt(q.size)
-                    }
-                    r
+                    val curIdx = _queueIndex.value
+                    val r = Random.nextInt(q.size - 1)
+                    if (r >= curIdx && curIdx in q.indices) r + 1 else r
                 } else {
                     0
                 }
             }
             PlayMode.REPEAT_ONE -> _queueIndex.value
             PlayMode.REPEAT_ALL, PlayMode.SEQUENTIAL -> {
-                if (_queueIndex.value - 1 < 0) q.size - 1 else _queueIndex.value - 1
+                if (_queueIndex.value <= 0) q.size - 1 else _queueIndex.value - 1
             }
         }
 

@@ -13,6 +13,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+import org.lumina.player.R
+
 /**
  * Equalizer frequency preset configuration.
  */
@@ -21,6 +23,27 @@ data class EqPreset(
     val nameResId: Int,
     val bandLevels: List<Short> // Relative dB gain in milliBels (mB, e.g. -1000 to +1000)
 )
+
+object EqPresets {
+    val FLAT = EqPreset("flat", R.string.eq_flat, listOf(0, 0, 0, 0, 0))
+    val ROCK = EqPreset("rock", R.string.eq_rock, listOf(400, 200, -100, 300, 500))
+    val POP = EqPreset("pop", R.string.eq_pop, listOf(-100, 200, 500, 100, -200))
+    val JAZZ = EqPreset("jazz", R.string.eq_jazz, listOf(300, 100, -200, 200, 400))
+    val CLASSICAL = EqPreset("classical", R.string.eq_classical, listOf(400, 300, -200, 200, 300))
+    val METAL = EqPreset("metal", R.string.eq_metal, listOf(500, 100, -300, 400, 600))
+    val HIPHOP = EqPreset("hiphop", R.string.eq_hiphop, listOf(400, 300, 0, 200, 300))
+
+    val ALL: List<EqPreset> = listOf(FLAT, ROCK, POP, JAZZ, CLASSICAL, METAL, HIPHOP)
+
+    fun findMatchingPreset(bandLevels: List<Short>, toleranceMb: Short = 15): EqPreset? {
+        return ALL.firstOrNull { preset ->
+            preset.bandLevels.size == bandLevels.size &&
+                preset.bandLevels.indices.all { i ->
+                    kotlin.math.abs(preset.bandLevels[i] - bandLevels[i]) <= toleranceMb
+                }
+        }
+    }
+}
 
 /**
  * DSP audio effects engine controller (Equalizer, Bass Boost, Virtualizer).

@@ -35,10 +35,16 @@ data class Song(
 ) {
     val durationFormatted: String
         get() {
-            val totalSeconds = (if (isVirtualCueTrack && cueEndMs > cueStartMs) (cueEndMs - cueStartMs) else durationMs) / 1000
-            val minutes = totalSeconds / 60
+            val totalMs = (if (isVirtualCueTrack && cueEndMs > cueStartMs) (cueEndMs - cueStartMs) else durationMs).coerceAtLeast(0L)
+            val totalSeconds = totalMs / 1000
+            val hours = totalSeconds / 3600
+            val minutes = (totalSeconds % 3600) / 60
             val seconds = totalSeconds % 60
-            return String.format("%02d:%02d", minutes, seconds)
+            return if (hours > 0) {
+                String.format("%d:%02d:%02d", hours, minutes, seconds)
+            } else {
+                String.format("%02d:%02d", minutes, seconds)
+            }
         }
 
     val displayArtist: String

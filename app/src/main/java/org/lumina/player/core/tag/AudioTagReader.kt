@@ -123,8 +123,8 @@ object AudioTagReader {
                 
                 var sampleSize = 1
                 val maxDimension = 1024
-                while (boundsOptions.outWidth / (sampleSize * 2) >= maxDimension && 
-                       boundsOptions.outHeight / (sampleSize * 2) >= maxDimension) {
+                while (boundsOptions.outWidth / sampleSize > maxDimension || 
+                       boundsOptions.outHeight / sampleSize > maxDimension) {
                     sampleSize *= 2
                 }
 
