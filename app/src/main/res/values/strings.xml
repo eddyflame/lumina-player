@@ -164,6 +164,10 @@
     <string name="no_songs_title">No Music Found</string>
     <string name="no_songs_desc">Place audio files on your device or tap Rescan to refresh your library.</string>
     <string name="scan_completed">Scan completed: %d songs found</string>
+    <string name="lockscreen_control_style">Lock Screen Control Style</string>
+    <string name="lockscreen_control_desc">Compact height with brand colors to preserve lock screen wallpaper</string>
+    <string name="lockscreen_style_compact">Lumina Compact (Recommended)</string>
+    <string name="lockscreen_style_system">System Native</string>
 
     <!-- About & Author -->
     <string name="about_app">About</string>

@@ -164,6 +164,10 @@
     <string name="no_songs_title">未扫描到音频文件</string>
     <string name="no_songs_desc">请在设备中放入音频文件，或点击重新扫描以刷新曲库。</string>
     <string name="scan_completed">扫描完成：共发现 %d 首歌曲</string>
+    <string name="lockscreen_control_style">锁屏播控样式</string>
+    <string name="lockscreen_control_desc">紧凑高度与品牌色彩，缩小高度避免遮挡锁屏壁纸</string>
+    <string name="lockscreen_style_compact">Lumina 精致紧凑 (推荐)</string>
+    <string name="lockscreen_style_system">系统原生大卡片</string>
 
     <!-- 关于与作者 -->
     <string name="about_app">关于软件</string>

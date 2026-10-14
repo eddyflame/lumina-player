@@ -51,10 +51,10 @@
 - **Ambient Flow Glow**: Dynamically tinted gradient backgrounds derived from album art colors;
 - **Fluid Gestures**: Interactive Mini Player bar with swipe-to-switch and pull-up fullscreen expansion.
 
-### 📱 Lock Screen & Desktop Playback Widget
-- **Compact 1-Row Layout**: Slim form factor engineered for both keyguard lock screen and home screen launcher, eliminating multi-row bloating;
-- **Brand Identity & Jewel Styling**: Luminous `LUMINA` brand badge, deep obsidian gradient background, and electric cyan (`#38BDF8`) highlight playback controls;
-- **Squircle Artwork & Safety Scaling**: Render smooth rounded album thumbnails with memory-safe scaling to prevent Binder buffer overflow crashes.
+### 📱 Lock Screen Controls & Desktop Playback Widget
+- **Dual Lock Screen Styles**: Choose between **Lumina Compact** (64dp compact, 100dp expanded RemoteViews with brand tag, dynamic Hi-Res audio spec badge, and jewel buttons to preserve wallpaper) and **System Native** (standard Android media card) in Settings;
+- **Xiaomi HyperOS Focus & Dynamic Island**: Automatically populates `miui.focus` notification extras for seamless status bar pill and lock screen dynamic island controls;
+- **Desktop Widget (AppWidget)**: Slim 1-row form factor with illuminated `LUMINA` badge, obsidian gradient, and memory-safe squircle artwork.
 
 ### 🛡️ Pure Offline & Zero Tracking
 - **No Internet Required**: 100% offline, zero network requests, zero telemetry, and zero ads.

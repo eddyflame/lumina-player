@@ -122,6 +122,11 @@ Lumina Player is engineered to support the widest possible spectrum of local aud
   * Engineered with a slim 1-row form factor (`minHeight="40dp"`, `targetCellHeight="1"`), preventing Android launchers and lock screen keyguards from expanding it to two rows.
   * Displays a prominent illuminated `LUMINA` brand identity badge in cyan (`#38BDF8`) alongside real-time track metadata and artist info.
   * Features jewel-gradient circular play controls (`#38BDF8` ➔ `#0284C7`), frosted-glass secondary action buttons, and rounded squircle album artwork rendering with memory-safe thumbnail scaling to prevent Binder `TransactionTooLargeException`.
+* **Dual-Style Lockscreen Playback Controls (`LuminaMediaNotificationProvider`)**:
+  * **Lumina Compact (`LUMINA_COMPACT`, Recommended)**: Custom crafted RemoteViews (`notification_media_compact` at 64dp and `notification_media_expanded` at 100dp) with jewel gradient backdrop (`#1E293B` ➔ `#0F172A` ➔ `#0A0F1D`), cyan `LUMINA` brand tag, dynamic Hi-Res audio spec badge ("Hi-Res 96kHz/24bit · DSP", "FLAC · DSP Audio"), anti-aliased squircle artwork, and embedded play/pause/prev/next controls. By avoiding the oversized 200dp default Android `MediaStyle` seekbar card, it preserves lock screen wallpaper visibility and eliminates UI clutter.
+  * **System Native (`SYSTEM_MEDIA`)**: Seamless fallback for users who prefer Android OS's standard system media resumption carousel card.
+  * **Reactive Live Switch**: User preference changes in `SettingsBottomSheet` are reactively observed and immediately re-render active lock screen controls without interrupting playback.
+  * **Xiaomi HyperOS Focus & Dynamic Island Integration**: Automatically populates `miui.focus.*` notification extras across both compact and system modes for seamless lock screen pill and dynamic island banner playback controls.
 
 ---
 

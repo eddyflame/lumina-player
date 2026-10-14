@@ -6,18 +6,27 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
+import android.media.AudioManager
 import android.os.Binder
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.os.PowerManager
+import android.widget.RemoteViews
+import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
-import android.media.AudioManager
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
@@ -39,6 +48,8 @@ import org.lumina.player.MainActivity
 import org.lumina.player.R
 import org.lumina.player.core.dsp.AudioDspController
 import org.lumina.player.core.model.Song
+import org.lumina.player.data.preferences.LockscreenControlStyle
+import org.lumina.player.ui.widget.LuminaPlayerWidgetProvider
 
 /**
  * Foreground audio playback service hosting ExoPlayer and MediaSession.
@@ -128,6 +139,15 @@ class LuminaAudioService : MediaSessionService() {
                     runCatching { if (wakeLock?.isHeld == true) wakeLock?.release() }
                     visualizerProcessor.resetSpectrum()
                 }
+                mediaSession?.let { session ->
+                    runCatching { onUpdateNotification(session, isPlaying) }
+                }
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                mediaSession?.let { session ->
+                    runCatching { onUpdateNotification(session, player.isPlaying) }
+                }
             }
         })
 
@@ -215,10 +235,30 @@ class LuminaAudioService : MediaSessionService() {
             .build()
 
         addSession(mediaSession!!)
+
+        // Reactively update lockscreen notification when user switches control styles in settings
+        serviceScope.launch {
+            (application as? LuminaApp)?.themePreferences?.themeSettings?.collect { _ ->
+                mediaSession?.let { session ->
+                    runCatching { onUpdateNotification(session, player.isPlaying) }
+                }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         runCatching {
+            when (intent?.action) {
+                LuminaPlayerWidgetProvider.ACTION_PLAY_PAUSE -> {
+                    (application as? LuminaApp)?.playerController?.togglePlayPause()
+                }
+                LuminaPlayerWidgetProvider.ACTION_PREV -> {
+                    (application as? LuminaApp)?.playerController?.skipPrevious()
+                }
+                LuminaPlayerWidgetProvider.ACTION_NEXT -> {
+                    (application as? LuminaApp)?.playerController?.skipNext()
+                }
+            }
             mediaSession?.let { session ->
                 if (::player.isInitialized && player.isPlaying) {
                     onUpdateNotification(session, true)
@@ -228,12 +268,40 @@ class LuminaAudioService : MediaSessionService() {
         return super.onStartCommand(intent, flags, startId)
     }
 
+    fun updateNotification() {
+        mediaSession?.let { session ->
+            runCatching { onUpdateNotification(session, player.isPlaying) }
+        }
+    }
+
     private class LuminaMediaNotificationProvider(
         private val context: Context,
         private val defaultProvider: DefaultMediaNotificationProvider
     ) : MediaNotification.Provider {
 
         override fun createNotification(
+            mediaSession: MediaSession,
+            customLayout: ImmutableList<CommandButton>,
+            actionFactory: MediaNotification.ActionFactory,
+            onNotificationChangedCallback: MediaNotification.Provider.Callback
+        ): MediaNotification {
+            val app = context.applicationContext as? LuminaApp
+            val lockscreenStyle = app?.themePreferences?.themeSettings?.value?.lockscreenControlStyle
+                ?: LockscreenControlStyle.LUMINA_COMPACT
+
+            return if (lockscreenStyle == LockscreenControlStyle.SYSTEM_MEDIA) {
+                createSystemMediaNotification(
+                    mediaSession,
+                    customLayout,
+                    actionFactory,
+                    onNotificationChangedCallback
+                )
+            } else {
+                createLuminaCompactNotification(mediaSession)
+            }
+        }
+
+        private fun createSystemMediaNotification(
             mediaSession: MediaSession,
             customLayout: ImmutableList<CommandButton>,
             actionFactory: MediaNotification.ActionFactory,
@@ -251,7 +319,160 @@ class LuminaAudioService : MediaSessionService() {
             notification.visibility = Notification.VISIBILITY_PUBLIC
             notification.color = 0xFF0284C7.toInt()
 
-            // Adapt for Xiaomi HyperOS Focus Notification & Dynamic Island (miui.focus)
+            applyHyperOsFocusExtras(notification, mediaSession)
+
+            return MediaNotification(mediaNotification.notificationId, notification)
+        }
+
+        private fun createLuminaCompactNotification(mediaSession: MediaSession): MediaNotification {
+            val app = context.applicationContext as? LuminaApp
+            val song = app?.playerController?.currentSong?.value
+            val isPlaying = mediaSession.player.isPlaying
+
+            val title = song?.title
+                ?: mediaSession.player.mediaMetadata.title?.toString()
+                ?: context.getString(R.string.app_name)
+            val artist = if (song != null) {
+                "${song.displayArtist} · ${song.displayAlbum}"
+            } else {
+                mediaSession.player.mediaMetadata.artist?.toString() ?: context.getString(R.string.app_subtitle)
+            }
+
+            // Launch app intent
+            val openAppIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val openPendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                openAppIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            // Playback controls intents targeting LuminaPlayerWidgetProvider
+            val prevPendingIntent = PendingIntent.getBroadcast(
+                context,
+                11,
+                Intent(context, LuminaPlayerWidgetProvider::class.java).apply {
+                    action = LuminaPlayerWidgetProvider.ACTION_PREV
+                },
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val playPausePendingIntent = PendingIntent.getBroadcast(
+                context,
+                12,
+                Intent(context, LuminaPlayerWidgetProvider::class.java).apply {
+                    action = LuminaPlayerWidgetProvider.ACTION_PLAY_PAUSE
+                },
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val nextPendingIntent = PendingIntent.getBroadcast(
+                context,
+                13,
+                Intent(context, LuminaPlayerWidgetProvider::class.java).apply {
+                    action = LuminaPlayerWidgetProvider.ACTION_NEXT
+                },
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            val compactViews = RemoteViews(context.packageName, R.layout.notification_media_compact)
+            val expandedViews = RemoteViews(context.packageName, R.layout.notification_media_expanded)
+
+            // Setup compact view
+            compactViews.setOnClickPendingIntent(R.id.notif_container, openPendingIntent)
+            compactViews.setTextViewText(R.id.notif_app_tag, context.getString(R.string.app_name_upper))
+            compactViews.setTextViewText(R.id.notif_title, title)
+            compactViews.setTextViewText(R.id.notif_artist, artist)
+            compactViews.setOnClickPendingIntent(R.id.notif_btn_prev, prevPendingIntent)
+            compactViews.setOnClickPendingIntent(R.id.notif_btn_play_pause, playPausePendingIntent)
+            compactViews.setOnClickPendingIntent(R.id.notif_btn_next, nextPendingIntent)
+            compactViews.setImageViewResource(R.id.notif_btn_prev, R.drawable.ic_widget_prev)
+            compactViews.setImageViewResource(
+                R.id.notif_btn_play_pause,
+                if (isPlaying) R.drawable.ic_widget_pause else R.drawable.ic_widget_play
+            )
+            compactViews.setImageViewResource(R.id.notif_btn_next, R.drawable.ic_widget_next)
+
+            // Setup expanded view
+            expandedViews.setOnClickPendingIntent(R.id.notif_exp_container, openPendingIntent)
+            expandedViews.setTextViewText(R.id.notif_exp_app_tag, context.getString(R.string.app_name_upper))
+            expandedViews.setTextViewText(R.id.notif_exp_title, title)
+            expandedViews.setTextViewText(R.id.notif_exp_artist, artist)
+            expandedViews.setOnClickPendingIntent(R.id.notif_exp_btn_prev, prevPendingIntent)
+            expandedViews.setOnClickPendingIntent(R.id.notif_exp_btn_play_pause, playPausePendingIntent)
+            expandedViews.setOnClickPendingIntent(R.id.notif_exp_btn_next, nextPendingIntent)
+            expandedViews.setImageViewResource(R.id.notif_exp_btn_prev, R.drawable.ic_widget_prev)
+            expandedViews.setImageViewResource(
+                R.id.notif_exp_btn_play_pause,
+                if (isPlaying) R.drawable.ic_widget_pause else R.drawable.ic_widget_play
+            )
+            expandedViews.setImageViewResource(R.id.notif_exp_btn_next, R.drawable.ic_widget_next)
+
+            // Dynamic audio spec badge in expanded view
+            val techInfo = app?.playerController?.currentTechInfo?.value
+            val specText = when {
+                techInfo != null && techInfo.isHiRes -> {
+                    val sampleKhz = (techInfo.sampleRate / 1000.0).let {
+                        if (it % 1.0 == 0.0) "${it.toInt()}kHz" else "${it}kHz"
+                    }
+                    "Hi-Res ${sampleKhz}/${techInfo.bitDepth}bit · DSP"
+                }
+                techInfo != null && techInfo.format != org.lumina.player.core.model.AudioFormatType.UNKNOWN -> {
+                    "${techInfo.format.displayName} · DSP Audio"
+                }
+                song != null && song.isHiRes -> {
+                    "Hi-Res Lossless · DSP"
+                }
+                else -> {
+                    "Hi-Res · DSP Audio"
+                }
+            }
+            expandedViews.setTextViewText(R.id.notif_exp_spec, specText)
+
+            // Artwork processing
+            val currentArtwork = app?.playerController?.currentArtwork?.value
+            val rawArtwork: Bitmap? = if (currentArtwork != null && !currentArtwork.isRecycled) {
+                currentArtwork
+            } else {
+                val artData = mediaSession.player.mediaMetadata.artworkData
+                if (artData != null && artData.isNotEmpty()) {
+                    runCatching { BitmapFactory.decodeByteArray(artData, 0, artData.size) }.getOrNull()
+                } else {
+                    null
+                }
+            }
+
+            if (rawArtwork != null && !rawArtwork.isRecycled) {
+                val roundedArt = getRoundedCornerBitmap(rawArtwork, cornerRadiusPx = 28f)
+                compactViews.setImageViewBitmap(R.id.notif_art, roundedArt)
+                expandedViews.setImageViewBitmap(R.id.notif_exp_art, roundedArt)
+            } else {
+                compactViews.setImageViewResource(R.id.notif_art, R.drawable.ic_widget_default_art)
+                expandedViews.setImageViewResource(R.id.notif_exp_art, R.drawable.ic_widget_default_art)
+            }
+
+            val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(title)
+                .setContentText(artist)
+                .setContentIntent(openPendingIntent)
+                .setOngoing(isPlaying)
+                .setOnlyAlertOnce(true)
+                .setShowWhen(false)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setColor(0xFF0284C7.toInt())
+                .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+                .setCustomContentView(compactViews)
+                .setCustomBigContentView(expandedViews)
+
+            val notification = builder.build()
+            notification.visibility = Notification.VISIBILITY_PUBLIC
+            applyHyperOsFocusExtras(notification, mediaSession)
+
+            return MediaNotification(NOTIFICATION_ID, notification)
+        }
+
+        private fun applyHyperOsFocusExtras(notification: Notification, mediaSession: MediaSession) {
             val extras = notification.extras ?: Bundle()
             extras.putBoolean("miui.focus.enable", true)
             extras.putBoolean("miui.focus.media", true)
@@ -264,8 +485,31 @@ class LuminaAudioService : MediaSessionService() {
             extras.putString("miui.focus.subtitle", artist)
             extras.putString("miui.focus.ticker", if (artist.isNotBlank()) "$title - $artist" else title)
             notification.extras = extras
+        }
 
-            return MediaNotification(mediaNotification.notificationId, notification)
+        private fun getRoundedCornerBitmap(src: Bitmap, cornerRadiusPx: Float): Bitmap {
+            return runCatching {
+                val size = 160
+                val scaled = if (src.width != size || src.height != size) {
+                    Bitmap.createScaledBitmap(src, size, size, true)
+                } else {
+                    src
+                }
+                val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(output)
+                val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    isAntiAlias = true
+                    isFilterBitmap = true
+                }
+                val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
+                canvas.drawRoundRect(rect, cornerRadiusPx, cornerRadiusPx, paint)
+                paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+                canvas.drawBitmap(scaled, 0f, 0f, paint)
+                if (scaled !== src) {
+                    scaled.recycle()
+                }
+                output
+            }.getOrDefault(src)
         }
 
         override fun handleCustomCommand(

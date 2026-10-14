@@ -626,6 +626,7 @@ class PlayerController(
             _isPlaying.value,
             _currentArtwork.value
         )
+        service?.updateNotification()
     }
 
     fun release() {
