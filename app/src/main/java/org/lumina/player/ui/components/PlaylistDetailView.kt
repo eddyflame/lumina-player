@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -35,8 +36,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -63,12 +66,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -121,6 +127,21 @@ fun PlaylistDetailView(
 
     val displayedSongs = remember(songs, isMostPlayed, mostPlayedLimit) {
         if (isMostPlayed) songs.take(mostPlayedLimit) else songs
+    }
+
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val currentSongIndex = remember(displayedSongs, currentSong) {
+        displayedSongs.indexOfFirst { it.uri == currentSong?.uri }
+    }
+    val headerItemCount = if (isMostPlayed) 2 else 1
+    val isCurrentSongVisible by remember(listState, currentSongIndex, headerItemCount) {
+        derivedStateOf {
+            if (currentSongIndex < 0) false else {
+                val targetIndex = headerItemCount + currentSongIndex
+                listState.layoutInfo.visibleItemsInfo.any { it.index == targetIndex }
+            }
+        }
     }
 
     val showMoreMenu = canBatchManage || canRenameOrDelete || displayedSongs.isNotEmpty()
@@ -234,6 +255,20 @@ fun PlaylistDetailView(
                             )
                         }
                     }
+                    if (currentSongIndex >= 0) {
+                        IconButton(onClick = {
+                            coroutineScope.launch {
+                                val target = (headerItemCount + currentSongIndex - 1).coerceAtLeast(0)
+                                listState.animateScrollToItem(target)
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.MyLocation,
+                                contentDescription = stringResource(R.string.locate_current_song),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                     if (canBatchManage) {
                         IconButton(onClick = {
                             isBatchMode = true
@@ -333,6 +368,7 @@ fun PlaylistDetailView(
 
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize()
             ) {
                 // Hero Playlist Header Card
@@ -697,6 +733,66 @@ fun PlaylistDetailView(
 
                 item {
                     Spacer(modifier = Modifier.height(80.dp))
+                }
+            }
+
+            // Floating Locate Pill when current playing song is in playlist but scrolled off-screen
+            androidx.compose.animation.AnimatedVisibility(
+                visible = currentSongIndex >= 0 && !isCurrentSongVisible && !isBatchMode,
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 20.dp)
+            ) {
+                Surface(
+                    onClick = {
+                        coroutineScope.launch {
+                            val target = (headerItemCount + currentSongIndex - 1).coerceAtLeast(0)
+                            listState.animateScrollToItem(target)
+                        }
+                    },
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shadowElevation = 6.dp,
+                    tonalElevation = 6.dp,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Equalizer,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.now_playing_track, currentSong?.title ?: ""),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = CircleShape,
+                            modifier = Modifier.size(22.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.MyLocation,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

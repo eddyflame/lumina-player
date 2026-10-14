@@ -6,16 +6,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -27,12 +29,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import org.lumina.player.R
 import org.lumina.player.core.model.Song
 
@@ -43,10 +49,26 @@ fun QueueBottomSheet(
     currentIndex: Int,
     sheetState: SheetState,
     onDismiss: () -> Unit,
-    onSongClick: (Song) -> Unit,
+    onSongClick: (Int, Song) -> Unit,
     onRemoveSong: (Int) -> Unit,
     onClearQueue: () -> Unit
 ) {
+    val coroutineScope = rememberCoroutineScope()
+    val initialScrollIndex = remember(currentIndex) {
+        (currentIndex - 2).coerceAtLeast(0)
+    }
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = initialScrollIndex
+    )
+
+    // Smoothly scroll to follow current track whenever index changes
+    LaunchedEffect(currentIndex) {
+        if (currentIndex in queue.indices) {
+            val target = (currentIndex - 2).coerceAtLeast(0)
+            listState.animateScrollToItem(target)
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
@@ -56,7 +78,7 @@ fun QueueBottomSheet(
                 .fillMaxWidth()
                 .padding(bottom = 24.dp)
         ) {
-            // Header title and clear queue button
+            // Header title and action buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -71,37 +93,64 @@ fun QueueBottomSheet(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "${queue.size} songs",
+                        text = stringResource(R.string.queue_song_count, queue.size),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                if (queue.isNotEmpty()) {
-                    TextButton(onClick = onClearQueue) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (queue.isNotEmpty() && currentIndex in queue.indices) {
+                        TextButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    val target = (currentIndex - 2).coerceAtLeast(0)
+                                    listState.animateScrollToItem(target)
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MyLocation,
+                                contentDescription = stringResource(R.string.locate_current_song),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(stringResource(R.string.locate_current_short))
+                        }
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(stringResource(R.string.clear_queue))
+                    }
+
+                    if (queue.isNotEmpty()) {
+                        TextButton(onClick = onClearQueue) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(stringResource(R.string.clear_queue))
+                        }
                     }
                 }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // Playback queue song list
-            LazyColumn(modifier = Modifier.fillMaxWidth().height(360.dp)) {
-                itemsIndexed(queue) { index, song ->
+            // Playback queue song list with auto-scroll and highlight
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 320.dp, max = 460.dp)
+            ) {
+                itemsIndexed(queue, key = { index, song -> "${song.uri}_$index" }) { index, song ->
                     val isCurrent = index == currentIndex
 
                     Surface(
                         color = if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onSongClick(song) }
+                            .clickable { onSongClick(index, song) }
                     ) {
                         Row(
                             modifier = Modifier

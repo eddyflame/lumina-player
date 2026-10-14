@@ -20,6 +20,7 @@
     <string name="previous">Previous</string>
     <string name="queue">Playing Queue</string>
     <string name="clear_queue">Clear Queue</string>
+    <string name="queue_song_count">%d songs</string>
     <string name="shuffle">Shuffle</string>
     <string name="shuffle_on">Shuffle On</string>
     <string name="shuffle_off">Shuffle Off</string>
@@ -98,6 +99,9 @@
     <string name="top_10">Top 10</string>
     <string name="top_50">Top 50</string>
     <string name="top_100">Top 100</string>
+    <string name="locate_current_song">Locate Current Track</string>
+    <string name="locate_current_short">Locate</string>
+    <string name="now_playing_track">Now Playing: %s</string>
 
     <!-- Visualizer -->
     <string name="visualizer">Visualizer</string>

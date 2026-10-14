@@ -56,6 +56,10 @@
 - **Xiaomi HyperOS Focus & Dynamic Island**: Automatically populates `miui.focus` notification extras for seamless status bar pill and lock screen dynamic island controls;
 - **Desktop Widget (AppWidget)**: Slim 1-row form factor with illuminated `LUMINA` badge, obsidian gradient, and memory-safe squircle artwork.
 
+### 📋 Active Track Synchronization & Real-Time Playlist Positioning
+- **Auto-Anchoring Playback Queue**: Opening the playback queue instantly auto-scrolls and centers the active playing song with zero visual hunting;
+- **Bi-Directional Track Locate**: Dedicated locate buttons and context-aware floating pills in Playlists and Library views smoothly guide the viewport back to the currently playing song with one tap.
+
 ### 🛡️ Pure Offline & Zero Tracking
 - **No Internet Required**: 100% offline, zero network requests, zero telemetry, and zero ads.
 

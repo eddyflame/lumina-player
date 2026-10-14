@@ -20,6 +20,7 @@
     <string name="previous">上一首</string>
     <string name="queue">播放队列</string>
     <string name="clear_queue">清空队列</string>
+    <string name="queue_song_count">%d 首歌曲</string>
     <string name="shuffle">随机播放</string>
     <string name="shuffle_on">已开启随机</string>
     <string name="shuffle_off">已关闭随机</string>
@@ -98,6 +99,9 @@
     <string name="top_10">Top 10</string>
     <string name="top_50">Top 50</string>
     <string name="top_100">Top 100</string>
+    <string name="locate_current_song">定位到当前播放</string>
+    <string name="locate_current_short">定位</string>
+    <string name="now_playing_track">正在播放：%s</string>
 
     <!-- 音乐律动 -->
     <string name="visualizer">音乐律动</string>

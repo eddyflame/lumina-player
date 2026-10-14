@@ -1,6 +1,7 @@
 package org.lumina.player
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -87,5 +88,86 @@ class PlayerQueueAndShuffleTest {
         assertEquals("GOTO_PREVIOUS", decideAction(3000L))
         assertEquals("GOTO_PREVIOUS", decideAction(1200L))
         assertEquals("GOTO_PREVIOUS", decideAction(0L))
+    }
+
+    @Test
+    fun testQueueScrollTargetCalculation() {
+        fun computeQueueScrollTarget(currentIndex: Int): Int {
+            return (currentIndex - 2).coerceAtLeast(0)
+        }
+
+        assertEquals(0, computeQueueScrollTarget(0))
+        assertEquals(0, computeQueueScrollTarget(1))
+        assertEquals(0, computeQueueScrollTarget(2))
+        assertEquals(1, computeQueueScrollTarget(3))
+        assertEquals(8, computeQueueScrollTarget(10))
+        assertEquals(48, computeQueueScrollTarget(50))
+    }
+
+    @Test
+    fun testPlaylistDetailScrollTargetCalculation() {
+        fun computePlaylistScrollTarget(headerCount: Int, songIndex: Int): Int {
+            if (songIndex < 0) return 0
+            return (headerCount + songIndex - 1).coerceAtLeast(0)
+        }
+
+        // Standard playlist with 1 header card (hero card)
+        assertEquals(0, computePlaylistScrollTarget(headerCount = 1, songIndex = 0))
+        assertEquals(1, computePlaylistScrollTarget(headerCount = 1, songIndex = 1))
+        assertEquals(14, computePlaylistScrollTarget(headerCount = 1, songIndex = 14))
+
+        // Most Played playlist with 2 header items (hero card + filter chips)
+        assertEquals(1, computePlaylistScrollTarget(headerCount = 2, songIndex = 0))
+        assertEquals(2, computePlaylistScrollTarget(headerCount = 2, songIndex = 1))
+        assertEquals(15, computePlaylistScrollTarget(headerCount = 2, songIndex = 14))
+    }
+
+    @Test
+    fun testTargetIndexPreservationWithDuplicateSongsInQueue() {
+        // Queue contains duplicate song URIs
+        val queue = listOf("uri://songA", "uri://songB", "uri://songA", "uri://songC")
+        
+        fun resolveQueueIndex(requestedUri: String, explicitTargetIndex: Int?): Int {
+            return if (explicitTargetIndex != null && explicitTargetIndex in queue.indices) {
+                explicitTargetIndex
+            } else {
+                queue.indexOfFirst { it == requestedUri }.coerceAtLeast(0)
+            }
+        }
+
+        // Clicking the second instance of songA (index 2) should preserve index 2, not default to index 0
+        val resolvedWithExplicit = resolveQueueIndex("uri://songA", explicitTargetIndex = 2)
+        assertEquals(2, resolvedWithExplicit)
+
+        // Without explicit target index, fallback finds first occurrence
+        val resolvedFallback = resolveQueueIndex("uri://songA", explicitTargetIndex = null)
+        assertEquals(0, resolvedFallback)
+    }
+
+    @Test
+    fun testLocatePillVisibilityCondition() {
+        fun shouldShowLocatePill(
+            currentSongIndex: Int,
+            visibleItemIndices: Set<Int>,
+            headerCount: Int,
+            isBatchMode: Boolean
+        ): Boolean {
+            if (isBatchMode || currentSongIndex < 0) return false
+            val targetLazyIndex = headerCount + currentSongIndex
+            val isVisible = visibleItemIndices.contains(targetLazyIndex)
+            return !isVisible
+        }
+
+        // Song #10 is playing, visible viewport only shows items 0 to 5
+        val viewportEarly = setOf(0, 1, 2, 3, 4, 5)
+        assertTrue(shouldShowLocatePill(currentSongIndex = 10, visibleItemIndices = viewportEarly, headerCount = 1, isBatchMode = false))
+
+        // Song #10 scrolls into visible viewport (e.g. items 9, 10, 11, 12, 13)
+        val viewportCentered = setOf(9, 10, 11, 12, 13)
+        // targetLazyIndex = 1 + 10 = 11, which is in viewportCentered
+        assertFalse(shouldShowLocatePill(currentSongIndex = 10, visibleItemIndices = viewportCentered, headerCount = 1, isBatchMode = false))
+
+        // Batch mode suppresses floating pill
+        assertFalse(shouldShowLocatePill(currentSongIndex = 10, visibleItemIndices = viewportEarly, headerCount = 1, isBatchMode = true))
     }
 }

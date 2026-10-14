@@ -301,8 +301,8 @@ fun LuminaPlayerApp(
                     currentIndex = queueIndex,
                     sheetState = queueSheetState,
                     onDismiss = { isQueueOpen = false },
-                    onSongClick = { song ->
-                        app.playerController.playSong(song)
+                    onSongClick = { index, _ ->
+                        app.playerController.playQueueIndex(index)
                     },
                     onRemoveSong = { idx -> app.playerController.removeFromQueue(idx) },
                     onClearQueue = {

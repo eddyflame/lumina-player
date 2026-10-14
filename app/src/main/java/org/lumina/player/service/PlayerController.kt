@@ -227,7 +227,12 @@ class PlayerController(
         }
     }
 
-    fun playSong(song: Song, newQueue: List<Song> = emptyList(), startPositionMs: Long = 0L) {
+    fun playSong(
+        song: Song,
+        newQueue: List<Song> = emptyList(),
+        startPositionMs: Long = 0L,
+        targetIndex: Int? = null
+    ) {
         val intent = Intent(context, LuminaAudioService::class.java)
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -238,7 +243,13 @@ class PlayerController(
         }
         if (newQueue.isNotEmpty()) {
             _queue.value = newQueue
-            _queueIndex.value = newQueue.indexOfFirst { it.uri == song.uri }.coerceAtLeast(0)
+            _queueIndex.value = if (targetIndex != null && targetIndex in newQueue.indices) {
+                targetIndex
+            } else {
+                newQueue.indexOfFirst { it.uri == song.uri }.coerceAtLeast(0)
+            }
+        } else if (targetIndex != null && targetIndex in _queue.value.indices) {
+            _queueIndex.value = targetIndex
         } else {
             val currentList = _queue.value
             val idx = currentList.indexOfFirst { it.uri == song.uri }
@@ -384,7 +395,14 @@ class PlayerController(
         }
 
         if (nextIndex in q.indices) {
-            playSong(q[nextIndex])
+            playSong(q[nextIndex], targetIndex = nextIndex)
+        }
+    }
+
+    fun playQueueIndex(index: Int, startPositionMs: Long = 0L) {
+        val q = _queue.value
+        if (index in q.indices) {
+            playSong(q[index], startPositionMs = startPositionMs, targetIndex = index)
         }
     }
 
@@ -415,7 +433,7 @@ class PlayerController(
         }
 
         if (prevIndex in q.indices) {
-            playSong(q[prevIndex])
+            playSong(q[prevIndex], targetIndex = prevIndex)
         }
     }
 

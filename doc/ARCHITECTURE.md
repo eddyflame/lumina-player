@@ -127,6 +127,17 @@ Lumina Player is engineered to support the widest possible spectrum of local aud
   * **Xiaomi HyperOS Focus & Dynamic Island Integration**: Automatically populates `miui.focus.*` notification extras (`miui.focus.enable`, `miui.focus.media`, `miui.focus.type=1`, `miui.focus.ongoing`, `miui.showActionInCompactView`, dynamic title/artist/ticker) for native HyperOS status bar pill, lock screen capsule, and dynamic island banner playback controls.
   * **Artwork & Metadata Synchronization**: Delivers album art directly via `Notification.EXTRA_LARGE_ICON` and `MediaMetadata` for crisp lock screen background and dynamic island presentation.
 
+### 4.5 Active Track Synchronization & Real-Time Playlist Positioning
+* **Auto-Anchoring Playback Queue (`QueueBottomSheet`)**:
+  * Employs `rememberLazyListState(initialFirstVisibleItemIndex = (currentIndex - 2).coerceAtLeast(0))` to guarantee zero-latency viewport alignment to the currently playing song when opening the queue, eliminating manual list hunting.
+  * Dynamically animates scroll updates via `LaunchedEffect(currentIndex)` when advancing or skipping tracks.
+  * Provides a dedicated 1-tap locate button (`Icons.Default.MyLocation`) in the queue header to instantly re-center the active track after browsing.
+  * Direct index dispatch (`playQueueIndex`) ensures strict queue-index synchronization even when duplicate track URIs exist.
+* **Bi-directional Playlist & Library Track Synchronization (`PlaylistDetailView` & `SongsTab`)**:
+  * Integrates real-time active song viewport detection via `derivedStateOf` inspecting `LazyListState.layoutInfo.visibleItemsInfo`.
+  * Top navigation app bar locate action smoothly centers the active playing song in the playlist view.
+  * Context-aware floating locate pill (`[🎵 Now Playing: Title · Locate]`) smoothly glides into view whenever the currently playing track scrolls offscreen, and gently fades away once back in viewport.
+
 ---
 
 ## 5. Build & CI/CD Pipeline

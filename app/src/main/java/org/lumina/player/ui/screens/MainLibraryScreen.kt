@@ -2,6 +2,10 @@ package org.lumina.player.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,11 +39,13 @@ import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
@@ -65,6 +72,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -600,29 +608,68 @@ private fun SongsTab(
         return
     }
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        // Header track count and Shuffle All button
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${songs.size} tracks",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                TextButton(onClick = onShuffleAll) {
-                    Icon(imageVector = Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(R.string.shuffle))
-                }
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val currentSongIndex = remember(songs, currentSong) {
+        songs.indexOfFirst { it.uri == currentSong?.uri }
+    }
+    val isCurrentSongVisible by remember(listState, currentSongIndex) {
+        derivedStateOf {
+            if (currentSongIndex < 0) false else {
+                // Header item is at index 0, songs start at index 1
+                val targetIndex = currentSongIndex + 1
+                listState.layoutInfo.visibleItemsInfo.any { it.index == targetIndex }
             }
         }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Header track count and Shuffle All button
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "${songs.size} tracks",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (currentSongIndex >= 0) {
+                            TextButton(onClick = {
+                                coroutineScope.launch {
+                                    val target = (currentSongIndex + 1 - 1).coerceAtLeast(0)
+                                    listState.animateScrollToItem(target)
+                                }
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.MyLocation,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(stringResource(R.string.locate_current_short))
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+
+                        TextButton(onClick = onShuffleAll) {
+                            Icon(imageVector = Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(stringResource(R.string.shuffle))
+                        }
+                    }
+                }
+            }
 
         items(songs, key = { it.uri }) { song ->
             val isCurrent = song.uri == currentSong?.uri
@@ -745,6 +792,67 @@ private fun SongsTab(
                                     showMenu = false
                                     onToggleFavorite(song.uri)
                                 }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Floating Locate Pill when current playing song is in the library list but scrolled off-screen
+    AnimatedVisibility(
+            visible = currentSongIndex >= 0 && !isCurrentSongVisible,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 20.dp)
+        ) {
+            Surface(
+                onClick = {
+                    coroutineScope.launch {
+                        val target = (currentSongIndex + 1 - 1).coerceAtLeast(0)
+                        listState.animateScrollToItem(target)
+                    }
+                },
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shadowElevation = 6.dp,
+                tonalElevation = 6.dp,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Equalizer,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.now_playing_track, currentSong?.title ?: ""),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = CircleShape,
+                        modifier = Modifier.size(22.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.MyLocation,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(13.dp)
                             )
                         }
                     }
