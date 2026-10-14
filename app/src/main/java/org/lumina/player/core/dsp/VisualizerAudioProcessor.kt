@@ -93,27 +93,16 @@ class VisualizerAudioProcessor(
         return inputAudioFormat // Pass-through unaltered audio
     }
 
-    private var lastInputTimeMs = 0L
-
     override fun onFlush() {
         super.onFlush()
         pcmSampleIndex = 0
         silenceFramesRemaining = silenceFrames
         rampFramesRemaining = totalRampFrames
-        lastInputTimeMs = 0L
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val remaining = inputBuffer.remaining()
         if (remaining == 0) return
-
-        // If audio stream was paused, idle, or starved for > 80ms, re-arm anti-pop soft ramp
-        val now = System.currentTimeMillis()
-        if (lastInputTimeMs > 0 && (now - lastInputTimeMs) > 80L) {
-            silenceFramesRemaining = silenceFrames
-            rampFramesRemaining = totalRampFrames
-        }
-        lastInputTimeMs = now
 
         // Pass-through audio data to downstream sink so playback remains bit-perfect
         val outputBuffer = replaceOutputBuffer(remaining)
@@ -397,7 +386,6 @@ class VisualizerAudioProcessor(
         pcmSampleIndex = 0
         silenceFramesRemaining = silenceFrames
         rampFramesRemaining = totalRampFrames
-        lastInputTimeMs = 0L
     }
 
     /**

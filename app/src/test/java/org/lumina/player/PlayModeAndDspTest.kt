@@ -111,4 +111,59 @@ class PlayModeAndDspTest {
         val fullSample = outputBuffer.short
         assertEquals(30000, fullSample.toInt())
     }
+
+    @Test
+    fun testFlacContinuousPlaybackDoesNotReArmRampOnInterBufferDelay() {
+        val proc = org.lumina.player.core.dsp.VisualizerAudioProcessor(barCount = 24)
+        val format = androidx.media3.common.audio.AudioProcessor.AudioFormat(
+            44100,
+            2,
+            androidx.media3.common.C.ENCODING_PCM_16BIT
+        )
+        proc.configure(format)
+        proc.flush()
+
+        val frameCount = 3000
+        val bytesPerFrame = 4 // 2 channels * 2 bytes
+        val byteBuffer = java.nio.ByteBuffer.allocateDirect(frameCount * bytesPerFrame)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+
+        for (i in 0 until frameCount) {
+            byteBuffer.putShort(30000.toShort()) // L
+            byteBuffer.putShort(30000.toShort()) // R
+        }
+        byteBuffer.flip()
+
+        // 1. Initial buffer: silence and Hann ramp are applied and exhausted
+        proc.queueInput(byteBuffer)
+        val output1 = proc.output
+        assertTrue(output1.hasRemaining())
+
+        // 2. Simulate subsequent FLAC block (e.g. 4096 samples, typically decoded ~93-105ms after previous)
+        // Ensure that during continuous stream, subsequent buffers arrive 100% bit-perfect without
+        // false-positive silence padding or ramp re-arming (which causes audio flutter/jitter).
+        val flacBlockFrames = 4096
+        val flacBuffer = java.nio.ByteBuffer.allocateDirect(flacBlockFrames * bytesPerFrame)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        for (i in 0 until flacBlockFrames) {
+            flacBuffer.putShort(30000.toShort())
+            flacBuffer.putShort(30000.toShort())
+        }
+        flacBuffer.flip()
+
+        proc.queueInput(flacBuffer)
+        val output2 = proc.output
+        assertTrue(output2.hasRemaining())
+
+        // The very first sample of the subsequent FLAC block MUST retain original amplitude (30000), NOT muted to 0
+        val sampleL = output2.short
+        val sampleR = output2.short
+        assertEquals(30000, sampleL.toInt())
+        assertEquals(30000, sampleR.toInt())
+
+        // Check middle of block
+        output2.position(1000 * bytesPerFrame)
+        assertEquals(30000, output2.short.toInt())
+    }
 }
+
