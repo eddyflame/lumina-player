@@ -217,8 +217,12 @@ class LuminaAudioService : MediaSessionService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        mediaSession?.let { session ->
-            onUpdateNotification(session, true)
+        runCatching {
+            mediaSession?.let { session ->
+                if (::player.isInitialized && player.isPlaying) {
+                    onUpdateNotification(session, true)
+                }
+            }
         }
         return super.onStartCommand(intent, flags, startId)
     }
@@ -413,7 +417,7 @@ class LuminaAudioService : MediaSessionService() {
         }
 
         mediaSession?.let { session ->
-            onUpdateNotification(session, true)
+            runCatching { onUpdateNotification(session, true) }
         }
     }
 
@@ -428,7 +432,7 @@ class LuminaAudioService : MediaSessionService() {
         player.replaceMediaItem(player.currentMediaItemIndex, newItem)
 
         mediaSession?.let { session ->
-            onUpdateNotification(session, player.isPlaying)
+            runCatching { onUpdateNotification(session, player.isPlaying) }
         }
     }
 
