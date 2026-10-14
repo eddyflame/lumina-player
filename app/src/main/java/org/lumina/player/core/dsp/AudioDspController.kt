@@ -78,8 +78,15 @@ class AudioDspController {
     @Volatile private var liveBassStrength: Short = 0
     @Volatile private var liveVirtualizerStrength: Short = 0
 
-    fun initSettings(enabled: Boolean, bassBoost: Short, virtualizer: Short) {
+    fun initSettings(
+        enabled: Boolean,
+        presetId: String = "flat",
+        bassBoost: Short = 0,
+        virtualizer: Short = 0
+    ) {
         isEnabled = enabled
+        val preset = EqPresets.ALL.firstOrNull { it.id == presetId } ?: EqPresets.FLAT
+        currentBandLevels = preset.bandLevels.toMutableList()
         bassBoostStrength = bassBoost
         virtualizerStrength = virtualizer
         liveBassStrength = bassBoost
@@ -104,13 +111,19 @@ class AudioDspController {
                     for (i in 0 until numBands) {
                         setBandLevel(i.toShort(), currentBandLevels[i])
                     }
+                } else if (currentBandLevels.isNotEmpty()) {
+                    for (i in 0 until numBands) {
+                        val level = currentBandLevels.getOrElse(i) { 0.toShort() }
+                        setBandLevel(i.toShort(), level)
+                    }
                 } else {
                     currentBandLevels.clear()
                     for (i in 0 until numBands) {
-                        currentBandLevels.add(getBandLevel(i.toShort()))
+                        currentBandLevels.add(0)
+                        setBandLevel(i.toShort(), 0)
                     }
                 }
-                // Only enable when non-flat to prevent filter-insertion pops and clipping
+                // Only enable when non-flat to prevent filter-insertion pops, HAL volume intercept, and clipping
                 enabled = isEnabled && currentBandLevels.any { it != 0.toShort() }
             }
         }

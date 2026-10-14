@@ -70,6 +70,7 @@ class LuminaAudioService : MediaSessionService() {
             val s = audioPrefs.settings.value
             dspController.initSettings(
                 enabled = s.eqEnabled,
+                presetId = s.eqPreset,
                 bassBoost = s.bassBoost.toShort(),
                 virtualizer = s.virtualizer.toShort()
             )

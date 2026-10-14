@@ -73,8 +73,9 @@ class PlayModeAndDspTest {
         proc.configure(format)
         proc.flush()
 
-        // Provide 100 frames of PCM 16-bit audio with max amplitude (30000)
-        val frameCount = 100
+        // Provide 3000 frames of PCM 16-bit audio with max amplitude (30000)
+        // 44.1kHz: ~882 frames of silence padding + ~1543 frames of Hann ramp + post-ramp bit-perfect
+        val frameCount = 3000
         val bytesPerFrame = 4 // 2 channels * 2 bytes
         val byteBuffer = java.nio.ByteBuffer.allocateDirect(frameCount * bytesPerFrame)
             .order(java.nio.ByteOrder.LITTLE_ENDIAN)
@@ -91,13 +92,23 @@ class PlayModeAndDspTest {
 
         val firstSampleL = outputBuffer.short
         val firstSampleR = outputBuffer.short
-        // First sample should be scaled down to 0 or near 0 by Hann window
+        // First sample in silence padding must be pure 0 to prevent DAC pop
         assertEquals(0, firstSampleL.toInt())
         assertEquals(0, firstSampleR.toInt())
 
-        // Read sample at frame 50: should be noticeably scaled up but less than 30000
-        outputBuffer.position(50 * bytesPerFrame)
+        // Sample at frame 300 (inside 20ms silence padding): must be pure 0
+        outputBuffer.position(300 * bytesPerFrame)
+        val silenceSample = outputBuffer.short
+        assertEquals(0, silenceSample.toInt())
+
+        // Read sample at frame 1650 (middle of Hann ramp): should be smoothly scaled up
+        outputBuffer.position(1650 * bytesPerFrame)
         val midSample = outputBuffer.short
         assertTrue("Mid sample ($midSample) should be greater than 0 and less than 30000", midSample in 1..29999)
+
+        // Read sample at frame 2600 (after ramp): must be original amplitude (bit-perfect)
+        outputBuffer.position(2600 * bytesPerFrame)
+        val fullSample = outputBuffer.short
+        assertEquals(30000, fullSample.toInt())
     }
 }
